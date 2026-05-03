@@ -27,9 +27,13 @@ Comunicación unidireccional: Linux → FL Studio. No se puede leer estado de vu
 | Mixer | 74 | 75 | command_type + params |
 
 ### Transporte MIDI
-- Escritura directa a `/dev/snd/midiC0D0` (bytes crudos)
+- Abstracción cross-platform en `knowledge/midi_transport.py`:
+  - **Linux**: `LinuxRawTransport` → escritura directa a `/dev/snd/midiC0D0`
+  - **Windows**: `WindowsRtmidiTransport` → `python-rtmidi` al puerto virtual `FL_MCP` (creado por loopMIDI)
+- `trigger.py` usa `create_transport()` que detecta plataforma vía `sys.platform`
 - **NO usar** mido (falla con Wine ALSA) ni amidi subprocess (demasiado lento)
-- Conexión: `aconnect` VirMIDI 0-0 → WINE ALSA Input
+- Conexión Linux: `aconnect` VirMIDI 0-0 → WINE ALSA Input
+- Tests: `pytest tests/test_midi_transport.py` (mocks rtmidi y open() — corre en cualquier plataforma)
 
 ---
 
