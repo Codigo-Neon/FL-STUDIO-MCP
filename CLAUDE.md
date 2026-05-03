@@ -2,10 +2,11 @@
 
 ## Arquitectura
 
-Sistema de control remoto de FL Studio desde Linux vía MIDI en tiempo real.
+Sistema de control remoto de FL Studio desde Linux o Windows vía MIDI en tiempo real.
 
 ```
-Claude (MCP) → trigger.py → /dev/snd/midiC0D0 → VirMIDI → Wine ALSA → FL Studio → device_test.py
+Linux:    Claude (MCP) → trigger.py → /dev/snd/midiC0D0 → VirMIDI → Wine ALSA → FL Studio → device_test.py
+Windows:  Claude (MCP) → trigger.py → python-rtmidi → puerto loopMIDI "FL_MCP" → FL Studio → device_test.py
 ```
 
 | Componente | Descripción |

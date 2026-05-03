@@ -7,6 +7,8 @@ to a virtual port created by loopMIDI. This module hides that difference.
 import sys
 from typing import Protocol, runtime_checkable
 
+__all__ = ["MidiTransport", "LinuxRawTransport", "WindowsRtmidiTransport", "create_transport"]
+
 
 @runtime_checkable
 class MidiTransport(Protocol):

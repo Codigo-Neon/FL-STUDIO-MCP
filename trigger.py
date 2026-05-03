@@ -81,11 +81,10 @@ from knowledge.learned.user_learning import (
     get_all_preferences, log_tool_use, get_tool_stats,
     analyze_midi_file, format_learned_context,
 )
+from knowledge.midi_transport import create_transport
 
 # Initialize FastMCP server
 mcp = FastMCP("flstudio")
-
-from knowledge.midi_transport import create_transport
 
 _transport = create_transport()
 

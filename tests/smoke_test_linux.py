@@ -18,11 +18,11 @@ def main() -> None:
     transport = create_transport()
     print(f"Using transport: {type(transport).__name__}")
 
-    print("Sending C5 note ON (vel 100)...")
+    print("Sending C4 note ON (vel 100)...")
     transport.send(bytes.fromhex("90 3C 64"))
     time.sleep(0.5)
 
-    print("Sending C5 note OFF...")
+    print("Sending C4 note OFF...")
     transport.send(bytes.fromhex("80 3C 00"))
 
     transport.close()
