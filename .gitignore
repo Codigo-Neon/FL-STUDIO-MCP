@@ -22,6 +22,11 @@ plugins_bajos_fl_studio.txt
 plugins_voz_fl_studio.txt
 GUIA_BOOM_BAP_90s_COMPLETA.txt
 GUIA_MEZCLA_MASTER_COMPLETA.txt
+AGENT_REPORT.md
+sidechain_kick_bajo_fl_studio.txt
+
+# Archivos MIDI de salida
+*.mid
 
 # OS
 .DS_Store
