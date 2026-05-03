@@ -42,6 +42,46 @@ from knowledge.constants import (
     Genre, SEMITONE_TO_NAME, midi_to_note,
 )
 
+# New knowledge modules
+from knowledge.ozone12 import (
+    get_mastering_chain as get_ozone_chain, get_module_guide as get_ozone_module,
+    get_quick_master, get_lufs_targets as get_ozone_lufs, list_ozone_modules,
+)
+from knowledge.fabfilter import (
+    get_eq_preset, get_compressor_preset, get_fabfilter_chain,
+    get_saturn_guide, format_plugin_info as fabfilter_info,
+)
+from knowledge.serum2 import (
+    get_patch_recipe, get_genre_sounds, get_fx_chain as get_serum_fx,
+    get_sound_design_tips, get_wavetable_guide, list_patches as list_serum_patches,
+)
+from knowledge.cymatics import (
+    get_cymatics_chain, get_plugin_guide as get_cymatics_guide,
+    list_cymatics_presets,
+)
+from knowledge.autotune import (
+    get_autotune_settings, get_vocal_tuning_workflow,
+    get_key_detection_guide,
+)
+from knowledge.rx11 import (
+    get_cleanup_chain, get_module_guide as get_rx_module,
+    get_repair_workflow, list_rx_modules,
+)
+from knowledge.sampling import (
+    get_chopping_guide, get_sampling_workflow, get_drum_machine_emulation,
+    get_sample_processing_chain,
+)
+from knowledge.mixing_advanced import (
+    get_mixing_workflow, get_gain_staging_guide as get_advanced_staging,
+    get_bus_setup, get_mixing_checklist as get_advanced_checklist,
+)
+from knowledge.serum2 import list_patches as list_serum_patches
+from knowledge.learned.user_learning import (
+    save_pattern, get_best_patterns, save_preference,
+    get_all_preferences, log_tool_use, get_tool_stats,
+    analyze_midi_file, format_learned_context,
+)
+
 # Initialize FastMCP server
 mcp = FastMCP("flstudio")
 
@@ -1288,6 +1328,350 @@ def get_velocity_guide() -> str:
 def get_soundtoys_plugins_guide() -> str:
     """Get guide for using Soundtoys plugins in hip-hop production."""
     return get_soundtoys_guide()
+
+
+# ============================================================================
+# PLUGIN-SPECIFIC TOOLS (Ozone, FabFilter, Serum, Cymatics, Auto-Tune, RX)
+# ============================================================================
+
+@mcp.tool()
+def get_ozone_mastering(genre: str = "boom_bap") -> str:
+    """Get complete Ozone 12 mastering chain for a genre with module settings.
+
+    Args:
+        genre: boom_bap, trap, phonk, lofi, jazz_hiphop
+
+    Returns:
+        Full mastering chain with each module's parameters
+    """
+    return get_ozone_chain(genre)
+
+
+@mcp.tool()
+def get_ozone_quick_master(genre: str = "boom_bap") -> str:
+    """Get simplified 3-4 module Ozone mastering chain for quick results.
+
+    Args:
+        genre: boom_bap, trap, phonk, lofi, jazz_hiphop
+    """
+    return get_quick_master(genre)
+
+
+@mcp.tool()
+def get_ozone_module_guide(module: str) -> str:
+    """Get detailed guide for a specific Ozone 12 module.
+
+    Args:
+        module: equalizer, dynamic_eq, dynamics, maximizer, exciter, imager,
+                vintage_tape, vintage_eq, vintage_compressor, vintage_limiter,
+                spectral_shaper, stabilizer, bass_control, clarity, impact,
+                low_end_focus, match_eq, master_rebalance, unlimiter, stem_eq
+    """
+    return get_ozone_module(module)
+
+
+@mcp.tool()
+def get_lufs_target(genre: str = "", platform: str = "") -> str:
+    """Get LUFS loudness targets by genre and streaming platform.
+
+    Args:
+        genre: boom_bap, trap, phonk, lofi, jazz_hiphop (optional)
+        platform: spotify, youtube, apple_music, soundcloud (optional)
+    """
+    return get_ozone_lufs(genre, platform)
+
+
+@mcp.tool()
+def get_fabfilter_eq(element: str = "vocals") -> str:
+    """Get Pro-Q 4 EQ preset for a specific element.
+
+    Args:
+        element: kick, snare, bass_808, vocals, piano_keys, hihats, master
+    """
+    return get_eq_preset(element)
+
+
+@mcp.tool()
+def get_fabfilter_compressor(element: str = "vocal_boom_bap") -> str:
+    """Get Pro-C 3 compressor settings for an element.
+
+    Args:
+        element: vocal_boom_bap, vocal_trap, 808_trap, drum_bus_boom_bap,
+                drum_bus_trap, drum_bus_phonk, master_bus
+    """
+    return get_compressor_preset(element)
+
+
+@mcp.tool()
+def get_fabfilter_mixing_chain(chain_type: str = "vocal_chain") -> str:
+    """Get complete FabFilter-only mixing chain for an element.
+
+    Args:
+        chain_type: vocal_chain, drum_bus_chain, 808_chain, master_chain
+    """
+    return get_fabfilter_chain(chain_type)
+
+
+@mcp.tool()
+def get_saturation_guide() -> str:
+    """Get FabFilter Saturn 2 saturation presets and guide."""
+    return get_saturn_guide()
+
+
+@mcp.tool()
+def get_serum_patch(sound_type: str = "808_sub") -> str:
+    """Get step-by-step Serum 2 patch recipe for a sound type.
+
+    Args:
+        sound_type: 808_sub, 808_distorted, trap_lead, boom_bap_keys,
+                   dark_pad, pluck_melody, phonk_cowbell, vinyl_texture
+    """
+    return get_patch_recipe(sound_type)
+
+
+@mcp.tool()
+def get_serum_sounds_for_genre(genre: str = "boom_bap") -> str:
+    """Get recommended Serum 2 sounds to create for a genre.
+
+    Args:
+        genre: boom_bap, trap, phonk, lofi
+    """
+    return get_genre_sounds(genre)
+
+
+@mcp.tool()
+def get_serum_sound_design() -> str:
+    """Get Serum 2 sound design techniques (wavetables, FM, resampling, macros)."""
+    return get_sound_design_tips()
+
+
+@mcp.tool()
+def get_cymatics_plugin_chain(element: str = "808", genre: str = "trap") -> str:
+    """Get Cymatics plugin chain for an element and genre.
+
+    Args:
+        element: drums, bass, 808, vocals, leads, melody, keys
+        genre: boom_bap, trap, phonk, lofi
+    """
+    return get_cymatics_chain(element, genre)
+
+
+@mcp.tool()
+def get_cymatics_plugin_guide(plugin: str = "diablo") -> str:
+    """Get detailed guide for a Cymatics plugin.
+
+    Args:
+        plugin: diablo, pluto, space, quake, vortex
+    """
+    return get_cymatics_guide(plugin)
+
+
+@mcp.tool()
+def get_autotune_guide(style: str = "hard_tune") -> str:
+    """Get Auto-Tune Pro settings for a vocal style.
+
+    Args:
+        style: natural (boom_bap/jazz), moderate (rnb/pop),
+               hard_tune (trap/drill), extreme (hyperpop)
+    """
+    return get_autotune_settings(style)
+
+
+@mcp.tool()
+def get_vocal_tuning_guide() -> str:
+    """Get complete vocal tuning workflow from recording to tuned vocal."""
+    return get_vocal_tuning_workflow()
+
+
+@mcp.tool()
+def get_key_detection() -> str:
+    """Get Auto-Key key detection workflow and tips."""
+    return get_key_detection_guide()
+
+
+@mcp.tool()
+def get_rx_cleanup(source_type: str = "vinyl_sample") -> str:
+    """Get iZotope RX 11 cleanup chain for a source type.
+
+    Args:
+        source_type: vinyl_sample, youtube_sample, vocal_recording,
+                    field_recording, stem_isolation
+    """
+    return get_cleanup_chain(source_type)
+
+
+@mcp.tool()
+def get_rx_module_guide(module: str = "spectral_denoise") -> str:
+    """Get detailed guide for a specific RX 11 module.
+
+    Args:
+        module: spectral_denoise, voice_denoise, de_click, de_crackle,
+               de_clip, de_ess, de_plosive, breath_control, mouth_de_click,
+               de_hum, de_reverb, dialogue_isolate, repair_assistant
+    """
+    return get_rx_module(module)
+
+
+@mcp.tool()
+def get_rx_overview() -> str:
+    """Get general RX 11 repair workflow overview with all modules."""
+    return get_repair_workflow()
+
+
+# ============================================================================
+# SAMPLING & ADVANCED MIXING TOOLS
+# ============================================================================
+
+@mcp.tool()
+def get_sampling_guide(source: str = "vinyl") -> str:
+    """Get sampling workflow for a source type.
+
+    Args:
+        source: vinyl, youtube, streaming, sample_packs
+    """
+    return get_sampling_workflow(source)
+
+
+@mcp.tool()
+def get_chopping_technique(technique: str = "") -> str:
+    """Get chopping technique guide. Empty for overview of all techniques.
+
+    Args:
+        technique: manual, slicex, by_bar, by_beat, stutter (or empty for all)
+    """
+    return get_chopping_guide(technique)
+
+
+@mcp.tool()
+def get_drum_machine_guide(machine: str = "mpc_60") -> str:
+    """Get drum machine emulation guide for FL Studio.
+
+    Args:
+        machine: mpc_60, sp_1200, mpc_3000
+    """
+    return get_drum_machine_emulation(machine)
+
+
+@mcp.tool()
+def get_sample_processing(style: str = "standard") -> str:
+    """Get sample processing chain (EQ, filtering, vinyl simulation).
+
+    Args:
+        style: standard, lofi, aggressive, clean
+    """
+    return get_sample_processing_chain(style)
+
+
+@mcp.tool()
+def get_advanced_mixing_workflow(genre: str = "boom_bap") -> str:
+    """Get advanced mixing workflow with gain staging, bus setup, and checklist.
+
+    Args:
+        genre: boom_bap, trap, phonk
+    """
+    return get_mixing_workflow(genre)
+
+
+@mcp.tool()
+def get_bus_routing(genre: str = "boom_bap") -> str:
+    """Get recommended bus routing and processing setup.
+
+    Args:
+        genre: boom_bap, trap, phonk
+    """
+    return get_bus_setup(genre)
+
+
+# ============================================================================
+# LEARNING & ANALYSIS TOOLS
+# ============================================================================
+
+@mcp.tool()
+def save_favorite_pattern(
+    pattern_type: str,
+    name: str,
+    notes_data: str,
+    genre: str = "",
+    key: str = "",
+    bpm: float = 0,
+    rating: int = 5,
+    notes: str = "",
+) -> str:
+    """Save a pattern the user liked for future reference and learning.
+
+    Args:
+        pattern_type: bassline, melody, drums, chord_progression
+        name: Descriptive name
+        notes_data: The MIDI note data or pattern description
+        genre: Genre it was used for
+        key: Musical key
+        bpm: Tempo
+        rating: 1-5 how much the user liked it
+        notes: Additional notes
+    """
+    return save_pattern(pattern_type, name, {"notes_data": notes_data}, genre, key, bpm, rating, notes)
+
+
+@mcp.tool()
+def get_favorite_patterns(pattern_type: str = "", genre: str = "") -> str:
+    """Get saved favorite patterns, optionally filtered.
+
+    Args:
+        pattern_type: bassline, melody, drums, chord_progression (or empty for all)
+        genre: Filter by genre (or empty for all)
+    """
+    return get_best_patterns(pattern_type, genre)
+
+
+@mcp.tool()
+def analyze_midi(file_path: str) -> str:
+    """Analyze a MIDI file and detect key, scale, range, note count, duration.
+
+    Args:
+        file_path: Path to the .mid file
+    """
+    return analyze_midi_file(file_path)
+
+
+@mcp.tool()
+def get_learned_context(genre: str = "") -> str:
+    """Get summary of what the system has learned from user preferences and patterns.
+
+    Args:
+        genre: Optional genre filter
+    """
+    return format_learned_context(genre)
+
+
+@mcp.tool()
+def suggest_plugin_chain(element: str, genre: str, priority: str = "fabfilter") -> str:
+    """Recommend a complete plugin chain using YOUR installed plugins.
+
+    Args:
+        element: kick, snare, bass, 808, vocals, hihats, piano, drums_bus, master
+        genre: boom_bap, trap, phonk, lofi
+        priority: fabfilter (default), cymatics, ozone, mixed
+    """
+    parts = [f"## Cadena para {element} ({genre})\n"]
+
+    if priority == "fabfilter" or priority == "mixed":
+        ff = get_fabfilter_chain(f"{element}_chain") if f"{element}_chain" in ["vocal_chain", "drum_bus_chain", "808_chain", "master_chain"] else ""
+        if ff:
+            parts.append(f"### FabFilter:\n{ff}\n")
+        eq = get_eq_preset(element)
+        if "no encontrado" not in eq.lower():
+            parts.append(f"### EQ (Pro-Q 4):\n{eq}\n")
+
+    if priority == "cymatics" or priority == "mixed":
+        cym = get_cymatics_chain(element, genre)
+        if "no encontrado" not in cym.lower():
+            parts.append(f"### Cymatics:\n{cym}\n")
+
+    if element == "master" and (priority == "ozone" or priority == "mixed"):
+        oz = get_ozone_chain(genre)
+        parts.append(f"### Ozone 12 Mastering:\n{oz}\n")
+
+    return "\n".join(parts) if len(parts) > 1 else f"No hay cadena específica para {element}/{genre}. Probá con 'mixed' como priority."
 
 
 # ============================================================================

@@ -475,13 +475,16 @@ def OnMidiMsg(event, timestamp=0):
             event.handled = True
             return
 
-        # Note 77 → Stop recording + playback
+        # Note 77 → Stop recording + playback + auto-quantize
         if note_value == 77:
             transport.stop()
             if transport.isRecording():
                 transport.record()  # Toggle off recording
+            # Auto-quantize to snap notes to grid
+            channel = channels.selectedChannel()
+            channels.quickQuantize(channel)
+            print(f"Recording stopped - channel {channel} quantized")
             transport.setSongPos(0, 2)
-            print("Recording stopped")
             event.handled = True
             return
 
@@ -726,95 +729,79 @@ def rec_hihat_pattern():
 
 def record_notes_batch(notes_array):
     """
-    Records a batch of notes to FL Studio, handling simultaneous notes properly
-    
+    Records a batch of notes to FL Studio using a single play+record pass.
+    Sends note on/off events in real-time from within FL Studio (no MIDI latency).
+    Works in both Pattern and Song mode.
+
     Args:
         notes_array: List of tuples, each containing (note, velocity, length_beats, position_beats)
     """
-    # Sort notes by their starting position
-    sorted_notes = sorted(notes_array, key=lambda x: x[3])
-    
-    # Group notes by their starting positions
-    position_groups = {}
-    for note in sorted_notes:
-        position = note[3]  # position_beats is the 4th element (index 3)
-        if position not in position_groups:
-            position_groups[position] = []
-        position_groups[position].append(note)
-    
-    # Process each position group
-    positions = sorted(position_groups.keys())
-    for position in positions:
-        notes_at_position = position_groups[position]
-        
-        # Find the longest note in this group to determine recording length
-        max_length = max(note[2] for note in notes_at_position)
-        
-        # Make sure transport is stopped first
-        if transport.isPlaying():
-            transport.stop()
-        
-        # Get the current channel
-        channel = channels.selectedChannel()
-        
-        # Get the project's PPQ (pulses per quarter note)
-        ppq = general.getRecPPQ()
-        
-        # Calculate ticks based on beats
-        position_ticks = int(position * ppq)
-        
-        # Set playback position
-        transport.setSongPos(position_ticks, 2)  # 2 = SONGLENGTH_ABSTICKS
-        
-        # Toggle recording mode if needed
-        if not transport.isRecording():
-            transport.record()
-        
-        print(f"Recording {len(notes_at_position)} simultaneous notes at position {position}")
-        
-        # Start playback to begin recording
-        transport.start()
-        
-        # Record all notes at this position simultaneously
-        for note, velocity, length, _ in notes_at_position:
-            channels.midiNoteOn(channel, note, velocity)
-        
-        # Get the current tempo
-        try:
-            import mixer
-            tempo = mixer.getCurrentTempo()
-            tempo = tempo/1000
-        except (ImportError, AttributeError):
-            tempo = 120  # Default fallback
-            
-        print(f"Using tempo: {tempo} BPM")
-        
-        # Calculate the time to wait in seconds based on the longest note
-        seconds_to_wait = (max_length * 60) / tempo
-        
-        print(f"Waiting for {seconds_to_wait:.2f} seconds...")
-        
-        # Wait the calculated time
-        time.sleep(seconds_to_wait)
-        
-        # Send note-off events for all notes
-        for note, _, _, _ in notes_at_position:
-            channels.midiNoteOn(channel, note, 0)
-        
-        # Stop playback
+    if not notes_array:
+        print("No notes to record")
+        return
+
+    channel = channels.selectedChannel()
+
+    # Get tempo
+    try:
+        import mixer
+        tempo = mixer.getCurrentTempo() / 1000
+    except (ImportError, AttributeError):
+        tempo = 120
+
+    seconds_per_beat = 60.0 / tempo
+    print(f"Recording {len(notes_array)} notes at {tempo} BPM (1 beat = {seconds_per_beat:.3f}s)")
+
+    # Build event timeline (note_on and note_off sorted by time)
+    events = []
+    for note, velocity, length, position in notes_array:
+        t_on = position * seconds_per_beat
+        t_off = (position + length) * seconds_per_beat
+        events.append((t_on, 'on', note, velocity))
+        events.append((t_off, 'off', note, 0))
+    events.sort(key=lambda e: (e[0], 0 if e[1] == 'off' else 1))
+
+    # Calculate total duration
+    total_time = max(e[0] for e in events) + 0.3
+
+    # Stop transport and go to beginning
+    if transport.isPlaying():
         transport.stop()
-        
-        # Exit recording mode if it was active
-        if transport.isRecording():
-            transport.record()
-        
-        # Small pause between recordings to avoid potential issues
-        time.sleep(0.2)
-    
-    print("All notes recorded successfully")
-    
-    # Return to beginning
     transport.setSongPos(0, 2)
+    time.sleep(0.1)
+
+    # Enable recording
+    if not transport.isRecording():
+        transport.record()
+
+    # Start playback (recording captures from within FL - no Wine latency)
+    transport.start()
+    print("Recording started - sending notes in real-time...")
+
+    # Send all note events timed from within FL Studio
+    start_time = time.time()
+    for event_time, event_type, note, vel in events:
+        wait = event_time - (time.time() - start_time)
+        if wait > 0:
+            time.sleep(wait)
+        if event_type == 'on':
+            channels.midiNoteOn(channel, note, vel)
+        else:
+            channels.midiNoteOn(channel, note, 0)
+
+    # Wait for last note to finish
+    time.sleep(0.3)
+
+    # Stop recording
+    transport.stop()
+    if transport.isRecording():
+        transport.record()
+
+    # Quantize to fix any tiny timing drift
+    channels.quickQuantize(channel)
+
+    transport.setSongPos(0, 2)
+    print(f"All {len(notes_array)} notes recorded and quantized!")
 
 
 
