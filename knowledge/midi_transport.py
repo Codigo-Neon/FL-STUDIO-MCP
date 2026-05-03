@@ -57,7 +57,6 @@ class WindowsRtmidiTransport:
         for index, name in enumerate(self._out.get_ports()):
             if port_name in name:
                 self._out.open_port(index)
-                self._port_name = port_name
                 return
         raise RuntimeError(f"MIDI port '{port_name}' not found")
 

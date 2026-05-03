@@ -97,3 +97,11 @@ class TestWindowsRtmidiTransport:
         WindowsRtmidiTransport()
 
         midi_out.open_port.assert_called_once_with(0)
+
+    def test_first_match_wins_when_multiple_ports_match(self, mock_rtmidi):
+        midi_out = mock_rtmidi.MidiOut.return_value
+        midi_out.get_ports.return_value = ["FL_MCP 0", "FL_MCP Legacy 1"]
+
+        WindowsRtmidiTransport(port_name="FL_MCP")
+
+        midi_out.open_port.assert_called_once_with(0)
