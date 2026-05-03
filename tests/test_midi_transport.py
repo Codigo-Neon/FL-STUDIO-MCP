@@ -1,7 +1,7 @@
 """Tests for the cross-platform MIDI transport layer."""
 from unittest.mock import MagicMock, call
 import pytest
-from knowledge.midi_transport import MidiTransport, LinuxRawTransport, WindowsRtmidiTransport
+from knowledge.midi_transport import MidiTransport, LinuxRawTransport, WindowsRtmidiTransport, create_transport
 
 
 class TestMidiTransportProtocol:
@@ -105,3 +105,27 @@ class TestWindowsRtmidiTransport:
         WindowsRtmidiTransport(port_name="FL_MCP")
 
         midi_out.open_port.assert_called_once_with(0)
+
+
+class TestCreateTransport:
+    def test_linux_returns_linux_raw_transport(self, force_platform, monkeypatch):
+        force_platform("linux")
+        monkeypatch.setattr("builtins.open", MagicMock())
+
+        transport = create_transport()
+
+        assert isinstance(transport, LinuxRawTransport)
+
+    def test_win32_returns_windows_rtmidi_transport(self, force_platform, mock_rtmidi):
+        force_platform("win32")
+        mock_rtmidi.MidiOut.return_value.get_ports.return_value = ["FL_MCP 0"]
+
+        transport = create_transport()
+
+        assert isinstance(transport, WindowsRtmidiTransport)
+
+    def test_unsupported_platform_raises(self, force_platform):
+        force_platform("darwin")
+
+        with pytest.raises(RuntimeError, match="Unsupported platform: darwin"):
+            create_transport()

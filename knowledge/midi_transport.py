@@ -4,6 +4,7 @@ The MCP server sends raw MIDI bytes to FL Studio. On Linux this means writing
 directly to /dev/snd/midiC0D0; on Windows it means using python-rtmidi to send
 to a virtual port created by loopMIDI. This module hides that difference.
 """
+import sys
 from typing import Protocol, runtime_checkable
 
 
@@ -65,3 +66,17 @@ class WindowsRtmidiTransport:
 
     def close(self) -> None:
         self._out.close_port()
+
+
+def create_transport() -> MidiTransport:
+    """Pick the right transport for the current OS.
+
+    On macOS or any other unsupported platform we raise rather than guess —
+    silent fallbacks would just produce confusing 'no MIDI received' bug
+    reports.
+    """
+    if sys.platform == "linux":
+        return LinuxRawTransport()
+    if sys.platform == "win32":
+        return WindowsRtmidiTransport()
+    raise RuntimeError(f"Unsupported platform: {sys.platform}")
