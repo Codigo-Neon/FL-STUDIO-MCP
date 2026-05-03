@@ -39,3 +39,30 @@ class LinuxRawTransport:
 
     def close(self) -> None:
         self._dev.close()
+
+
+class WindowsRtmidiTransport:
+    """Send MIDI bytes to a virtual port (created by loopMIDI) via python-rtmidi.
+
+    The Windows installer creates a loopMIDI port named "FL_MCP" during setup;
+    FL Studio is configured to read from it. We open the first port whose name
+    contains the substring `port_name` (rtmidi suffixes ports with an index).
+    """
+
+    DEFAULT_PORT_NAME = "FL_MCP"
+
+    def __init__(self, port_name: str = DEFAULT_PORT_NAME) -> None:
+        import rtmidi  # imported lazily so Linux callers never need rtmidi
+        self._out = rtmidi.MidiOut()
+        for index, name in enumerate(self._out.get_ports()):
+            if port_name in name:
+                self._out.open_port(index)
+                self._port_name = port_name
+                return
+        raise RuntimeError(f"MIDI port '{port_name}' not found")
+
+    def send(self, data: bytes) -> None:
+        self._out.send_message(list(data))
+
+    def close(self) -> None:
+        self._out.close_port()
