@@ -1,5 +1,6 @@
 from typing import Any
 from mcp.server.fastmcp import FastMCP
+import subprocess
 import time
 
 # Knowledge base imports
