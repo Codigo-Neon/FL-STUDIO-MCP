@@ -4,9 +4,10 @@ The MCP server sends raw MIDI bytes to FL Studio. On Linux this means writing
 directly to /dev/snd/midiC0D0; on Windows it means using python-rtmidi to send
 to a virtual port created by loopMIDI. This module hides that difference.
 """
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 
+@runtime_checkable
 class MidiTransport(Protocol):
     """Send raw MIDI bytes and clean up resources."""
 
