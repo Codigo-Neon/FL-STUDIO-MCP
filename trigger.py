@@ -85,14 +85,14 @@ from knowledge.learned.user_learning import (
 # Initialize FastMCP server
 mcp = FastMCP("flstudio")
 
-MIDI_DEV = "/dev/snd/midiC0D0"
-midi_dev = open(MIDI_DEV, "wb", buffering=0)
+from knowledge.midi_transport import create_transport
 
-def send_raw_midi(hex_string):
-    """Send raw MIDI bytes directly to device"""
+_transport = create_transport()
+
+def send_raw_midi(hex_string: str) -> None:
+    """Send raw MIDI bytes to the active transport (Linux raw device or Windows rtmidi port)."""
     data = bytes.fromhex(hex_string.replace(" ", ""))
-    midi_dev.write(data)
-    midi_dev.flush()
+    _transport.send(data)
 
 # Global BPM state - tracks the current project tempo
 current_bpm: float = 90.0  # Default BPM (boom bap standard)
