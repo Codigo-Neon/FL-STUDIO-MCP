@@ -77,3 +77,71 @@ class TestCreatePort:
 
         with pytest.raises(RuntimeError, match="loopMIDI exited with code 1"):
             create_port(loopmidi_exe=loopmidi_exe, port_name="FL_MCP")
+
+
+from installer.setup_engine.loopmidi import (
+    download_loopmidi,
+    install_loopmidi,
+    LOOPMIDI_DOWNLOAD_URL,
+)
+
+
+class TestDownloadLoopmidi:
+    def test_writes_installer_to_dest(self, monkeypatch, fs):
+        dest = Path("/tmp/loopmidi_setup.exe")
+        fake_response = MagicMock()
+        fake_response.read.return_value = b"FAKE INSTALLER BYTES"
+        fake_response.__enter__ = MagicMock(return_value=fake_response)
+        fake_response.__exit__ = MagicMock(return_value=False)
+
+        fake_urlopen = MagicMock(return_value=fake_response)
+        monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+        result = download_loopmidi(dest=dest)
+
+        assert result == dest
+        assert dest.read_bytes() == b"FAKE INSTALLER BYTES"
+        fake_urlopen.assert_called_once_with(LOOPMIDI_DOWNLOAD_URL, timeout=60)
+
+    def test_raises_on_network_error(self, monkeypatch, fs):
+        from urllib.error import URLError
+        dest = Path("/tmp/loopmidi_setup.exe")
+        monkeypatch.setattr(
+            "urllib.request.urlopen",
+            MagicMock(side_effect=URLError("no internet")),
+        )
+
+        with pytest.raises(URLError):
+            download_loopmidi(dest=dest)
+
+
+class TestInstallLoopmidi:
+    def test_runs_installer_silently(self, monkeypatch, fs):
+        installer = Path("C:/tmp/loopmidi_setup.exe")
+        fs.create_file(str(installer))
+        fake_run = MagicMock(return_value=MagicMock(returncode=0))
+        monkeypatch.setattr("subprocess.run", fake_run)
+
+        install_loopmidi(installer=installer)
+
+        fake_run.assert_called_once_with(
+            [str(installer), "/SILENT", "/NORESTART"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+    def test_raises_on_installer_failure(self, monkeypatch, fs):
+        installer = Path("C:/tmp/loopmidi_setup.exe")
+        fs.create_file(str(installer))
+        monkeypatch.setattr(
+            "subprocess.run",
+            MagicMock(return_value=MagicMock(returncode=2, stderr="cancelled")),
+        )
+
+        with pytest.raises(RuntimeError, match="loopMIDI installer exited with code 2"):
+            install_loopmidi(installer=installer)
+
+
+def test_download_url_points_to_official_site():
+    assert "tobias-erichsen.de" in LOOPMIDI_DOWNLOAD_URL

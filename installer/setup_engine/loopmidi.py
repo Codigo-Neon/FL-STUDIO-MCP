@@ -44,3 +44,40 @@ def create_port(loopmidi_exe: Path, port_name: str) -> None:
         raise RuntimeError(
             f"loopMIDI exited with code {result.returncode}: {result.stderr.strip()}"
         )
+
+
+import urllib.request
+
+# Tobias Erichsen's official download. Free, but the author asks that we link to
+# his site rather than mirror the binary. We download fresh on every install so
+# users always get the current version.
+LOOPMIDI_DOWNLOAD_URL = (
+    "https://www.tobias-erichsen.de/wp-content/uploads/2020/01/loopMIDISetup_1_0_16_27.zip"
+)
+
+
+def download_loopmidi(dest: Path) -> Path:
+    """Download the loopMIDI installer from the official site to `dest`.
+
+    Raises urllib.error.URLError on network failures.
+    """
+    with urllib.request.urlopen(LOOPMIDI_DOWNLOAD_URL, timeout=60) as response:
+        dest.write_bytes(response.read())
+    return dest
+
+
+def install_loopmidi(installer: Path) -> None:
+    """Run the loopMIDI installer silently (`/SILENT /NORESTART`).
+
+    Raises RuntimeError if the installer exits with a non-zero code.
+    """
+    result = subprocess.run(
+        [str(installer), "/SILENT", "/NORESTART"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"loopMIDI installer exited with code {result.returncode}: {result.stderr.strip()}"
+        )
