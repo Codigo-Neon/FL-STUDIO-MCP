@@ -145,3 +145,49 @@ class TestInstallLoopmidi:
 
 def test_download_url_points_to_official_site():
     assert "tobias-erichsen.de" in LOOPMIDI_DOWNLOAD_URL
+
+
+import io
+import zipfile as _zipfile
+
+from installer.setup_engine.loopmidi import extract_loopmidi
+
+
+class TestExtractLoopmidi:
+    def _make_zip_with_exe(self, fs, zip_path: Path, inner_exe_name: str = "loopMIDISetup.exe") -> None:
+        """Build a real ZIP file containing one .exe entry, using pyfakefs."""
+        buf = io.BytesIO()
+        with _zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr(inner_exe_name, b"FAKE EXE BYTES")
+        fs.create_file(str(zip_path), contents=buf.getvalue())
+
+    def test_returns_path_to_inner_exe(self, fs):
+        zip_path = Path("/fake/loopmidi.zip")
+        extract_dir = Path("/fake/extracted")
+        self._make_zip_with_exe(fs, zip_path)
+
+        result = extract_loopmidi(zip_path=zip_path, extract_dir=extract_dir)
+
+        assert result == extract_dir / "loopMIDISetup.exe"
+        assert result.exists()
+        assert result.read_bytes() == b"FAKE EXE BYTES"
+
+    def test_creates_extract_dir_if_missing(self, fs):
+        zip_path = Path("/fake/loopmidi.zip")
+        extract_dir = Path("/fake/does_not_exist_yet")
+        self._make_zip_with_exe(fs, zip_path)
+
+        extract_loopmidi(zip_path=zip_path, extract_dir=extract_dir)
+
+        assert extract_dir.is_dir()
+
+    def test_raises_when_zip_has_no_exe(self, fs):
+        zip_path = Path("/fake/loopmidi.zip")
+        extract_dir = Path("/fake/extracted")
+        buf = io.BytesIO()
+        with _zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("readme.txt", b"no exe here")
+        fs.create_file(str(zip_path), contents=buf.getvalue())
+
+        with pytest.raises(FileNotFoundError, match="No .exe found"):
+            extract_loopmidi(zip_path=zip_path, extract_dir=extract_dir)

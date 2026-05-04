@@ -53,3 +53,32 @@ class TestCli:
         kwargs = fake_create.call_args.kwargs
         assert str(kwargs["loopmidi_exe"]).endswith("loopMIDI.exe")
         assert kwargs["port_name"] == "FL_MCP"
+
+    def test_register_mcp_subcommand_calls_register_mcp_server(self, monkeypatch):
+        """Regression test: --command flag must not collide with subparser dest.
+
+        Originally `add_subparsers(dest="command")` caused argparse to overwrite
+        the subcommand name with the value of `--command`, breaking dispatch.
+        Renaming dest to `subcmd` fixed it. This test guards against regressions.
+        """
+        fake_register = MagicMock()
+        fake_backup = MagicMock()
+        monkeypatch.setattr(
+            "installer.setup_engine.cli.register_mcp_server", fake_register
+        )
+        monkeypatch.setattr(
+            "installer.setup_engine.cli.backup_config", fake_backup
+        )
+
+        cli.main([
+            "register-mcp",
+            "--config", "C:/Users/u/AppData/Roaming/Claude/claude_desktop_config.json",
+            "--command", "C:/python.exe",
+            "--args", "trigger.py",
+        ])
+
+        fake_register.assert_called_once()
+        kwargs = fake_register.call_args.kwargs
+        assert kwargs["name"] == "flstudio"
+        assert kwargs["command"] == "C:/python.exe"
+        assert kwargs["args"] == ["trigger.py"]

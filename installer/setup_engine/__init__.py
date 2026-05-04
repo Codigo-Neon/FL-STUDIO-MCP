@@ -18,6 +18,7 @@ from installer.setup_engine.loopmidi import (
     LoopMidiNotInstalledError,
     create_port,
     download_loopmidi,
+    extract_loopmidi,
     install_loopmidi,
     port_exists,
 )
@@ -31,6 +32,7 @@ __all__ = [
     "create_port",
     "detect_environment",
     "download_loopmidi",
+    "extract_loopmidi",
     "find_config_path",
     "install_device_script",
     "install_loopmidi",

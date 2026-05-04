@@ -1,8 +1,11 @@
-"""Shared pytest fixtures for the FL MCP test suite."""
+"""Shared pytest fixtures for the FL MCP test suite.
+
+Note: the `fs` fixture is provided automatically by pyfakefs's pytest plugin
+once `pyfakefs` is installed — no manual definition needed here.
+"""
 import sys
 from unittest.mock import MagicMock
 import pytest
-from pyfakefs.fake_filesystem_unittest import Patcher
 
 
 @pytest.fixture
@@ -20,12 +23,3 @@ def force_platform(monkeypatch):
     def _set(value: str) -> None:
         monkeypatch.setattr(sys, "platform", value)
     return _set
-
-
-@pytest.fixture
-def fs():
-    """Return a patched fake filesystem for testing filesystem operations."""
-    patcher = Patcher()
-    patcher.setUp()
-    yield patcher.fs
-    patcher.tearDown()

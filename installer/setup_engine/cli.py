@@ -19,6 +19,7 @@ from installer.setup_engine.fl_studio import install_device_script
 from installer.setup_engine.loopmidi import (
     create_port,
     download_loopmidi,
+    extract_loopmidi,
     install_loopmidi,
 )
 
@@ -28,13 +29,15 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="setup_engine",
         description="FL MCP Studio installer — Setup Engine CLI (run subcommands manually for debugging).",
     )
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="subcmd", required=True)
 
     sub.add_parser("detect", help="Print which dependencies are installed.")
 
-    p_install_lm = sub.add_parser("install-loopmidi", help="Download + silent-install loopMIDI.")
-    p_install_lm.add_argument("--dest", type=Path, default=Path("loopmidi_setup.exe"),
-                              help="Where to save the downloaded installer.")
+    p_install_lm = sub.add_parser("install-loopmidi", help="Download + extract + silent-install loopMIDI.")
+    p_install_lm.add_argument("--zip-dest", type=Path, default=Path("loopmidi_setup.zip"),
+                              help="Where to save the downloaded ZIP.")
+    p_install_lm.add_argument("--extract-dir", type=Path, default=Path("loopmidi_extracted"),
+                              help="Where to extract the ZIP contents.")
 
     p_create = sub.add_parser("create-port", help="Create a loopMIDI virtual port.")
     p_create.add_argument("--loopmidi-exe", type=Path, required=True)
@@ -72,21 +75,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    if args.command == "detect":
+    if args.subcmd == "detect":
         report = detect_environment()
         _print_detect(report)
         return 0 if report.is_ready() else 1
 
-    if args.command == "install-loopmidi":
-        download_loopmidi(dest=args.dest)
-        install_loopmidi(installer=args.dest)
+    if args.subcmd == "install-loopmidi":
+        download_loopmidi(dest=args.zip_dest)
+        installer_exe = extract_loopmidi(zip_path=args.zip_dest, extract_dir=args.extract_dir)
+        install_loopmidi(installer=installer_exe)
         return 0
 
-    if args.command == "create-port":
+    if args.subcmd == "create-port":
         create_port(loopmidi_exe=args.loopmidi_exe, port_name=args.port_name)
         return 0
 
-    if args.command == "install-script":
+    if args.subcmd == "install-script":
         install_device_script(
             source_script=args.source,
             fl_studio_settings_dir=args.fl_settings,
@@ -94,7 +98,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         )
         return 0
 
-    if args.command == "register-mcp":
+    if args.subcmd == "register-mcp":
         config = args.config or find_config_path()
         backup_config(config)
         register_mcp_server(
@@ -105,7 +109,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         )
         return 0
 
-    parser.error(f"Unknown command: {args.command}")
+    parser.error(f"Unknown command: {args.subcmd}")
     return 2  # unreachable but satisfies type checkers
 
 

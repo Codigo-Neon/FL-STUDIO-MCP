@@ -8,6 +8,8 @@ Download/install of loopMIDI itself is in this same module (added in Task 6) but
 kept as separate functions for clarity.
 """
 import subprocess
+import urllib.request
+import zipfile
 from pathlib import Path
 
 
@@ -46,18 +48,17 @@ def create_port(loopmidi_exe: Path, port_name: str) -> None:
         )
 
 
-import urllib.request
-
 # Tobias Erichsen's official download. Free, but the author asks that we link to
-# his site rather than mirror the binary. We download fresh on every install so
-# users always get the current version.
+# his site rather than mirror the binary. URL is version-pinned: Tobias does not
+# publish a "latest" alias, so future loopMIDI releases require updating this
+# constant. Tracked as a known limitation.
 LOOPMIDI_DOWNLOAD_URL = (
     "https://www.tobias-erichsen.de/wp-content/uploads/2020/01/loopMIDISetup_1_0_16_27.zip"
 )
 
 
 def download_loopmidi(dest: Path) -> Path:
-    """Download the loopMIDI installer from the official site to `dest`.
+    """Download the loopMIDI installer ZIP from the official site to `dest`.
 
     Raises urllib.error.URLError on network failures.
     """
@@ -66,8 +67,25 @@ def download_loopmidi(dest: Path) -> Path:
     return dest
 
 
+def extract_loopmidi(zip_path: Path, extract_dir: Path) -> Path:
+    """Extract the loopMIDI ZIP and return the path to the inner setup .exe.
+
+    Raises FileNotFoundError if the ZIP contains no .exe entry.
+    """
+    extract_dir.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path) as zf:
+        zf.extractall(extract_dir)
+    for candidate in extract_dir.rglob("*.exe"):
+        return candidate
+    raise FileNotFoundError(f"No .exe found inside {zip_path}")
+
+
 def install_loopmidi(installer: Path) -> None:
     """Run the loopMIDI installer silently (`/SILENT /NORESTART`).
+
+    `installer` must be the .exe extracted from the downloaded ZIP — passing the
+    ZIP itself will fail. Use download_loopmidi → extract_loopmidi → install_loopmidi
+    in sequence.
 
     Raises RuntimeError if the installer exits with a non-zero code.
     """
