@@ -2,6 +2,7 @@
 import sys
 from unittest.mock import MagicMock
 import pytest
+from pyfakefs.fake_filesystem_unittest import Patcher
 
 
 @pytest.fixture
@@ -19,3 +20,12 @@ def force_platform(monkeypatch):
     def _set(value: str) -> None:
         monkeypatch.setattr(sys, "platform", value)
     return _set
+
+
+@pytest.fixture
+def fs():
+    """Return a patched fake filesystem for testing filesystem operations."""
+    patcher = Patcher()
+    patcher.setUp()
+    yield patcher.fs
+    patcher.tearDown()
