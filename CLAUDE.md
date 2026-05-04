@@ -138,6 +138,22 @@ send_raw_midi('90 4D 01'); time.sleep(0.01); send_raw_midi('80 4D 00')
 
 ---
 
+## Sistema de Instalación (Windows)
+
+`installer/setup_engine/` es la biblioteca pura de Python que hace el setup automático del MCP en Windows. Diseñada para que la GUI del wizard (sub-proyecto C) la importe.
+
+| Módulo | Responsabilidad |
+|---|---|
+| `detect.py` | Devuelve `EnvironmentReport` con qué hay instalado (Claude Desktop, FL Studio, loopMIDI, WebView2) |
+| `claude_config.py` | Edita `claude_desktop_config.json` con backup `.bak`. Tira `ConfigCorruptedError` si el JSON está roto |
+| `fl_studio.py` | Copia `device_test.py` a `Documents/Image-Line/FL Studio/Settings/Hardware/FL_MCP/` + crea `.nfo` companion |
+| `loopmidi.py` | Descarga loopMIDI del sitio oficial, instalación silenciosa, crea/detecta puerto virtual `FL_MCP` |
+| `cli.py` | Wrapper argparse: `python -m installer.setup_engine.cli <subcommand>` para QA manual |
+
+Tests: `pytest tests/setup_engine/` (corre en Linux con pyfakefs + mocks de subprocess/urllib/rtmidi).
+
+---
+
 ## Preferencias del Proyecto
 
 - **Idioma**: Español (todo output y guías en español)
