@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FL MCP Studio — Configuración</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h1 class="brand">FL MCP Studio</h1>
+      <ol class="steps" id="steps">
+        <li data-step="1" class="step current"><span class="dot"></span>Bienvenida</li>
+        <li data-step="2" class="step"><span class="dot"></span>Diagnóstico</li>
+        <li data-step="3" class="step"><span class="dot"></span>Instalar loopMIDI</li>
+        <li data-step="4" class="step"><span class="dot"></span>Crear puerto MIDI</li>
+        <li data-step="5" class="step"><span class="dot"></span>Instalar script</li>
+        <li data-step="6" class="step"><span class="dot"></span>Registrar Claude</li>
+        <li data-step="7" class="step"><span class="dot"></span>Configurar FL Studio</li>
+        <li data-step="8" class="step"><span class="dot"></span>Probar conexión</li>
+        <li data-step="9" class="step"><span class="dot"></span>Listo</li>
+      </ol>
+    </aside>
+
+    <main class="content">
+      <section class="step-panel" data-step="1">
+        <h2>Bienvenida</h2>
+        <p>Esto va a configurar Claude para que controle tu FL Studio. Tarda unos 3 minutos.</p>
+        <p>Asegurate de tener <strong>FL Studio cerrado</strong> antes de empezar.</p>
+        <div class="actions">
+          <button class="primary" data-action="next">Comenzar</button>
+        </div>
+      </section>
+
+      <section class="step-panel hidden" data-step="2">
+        <h2>Diagnóstico del sistema</h2>
+        <p>Chequeando qué está instalado…</p>
+        <ul class="checklist" id="diag-list"></ul>
+        <div class="actions">
+          <button class="secondary" data-action="back">Atrás</button>
+          <button class="primary" data-action="next" id="diag-next" disabled>Siguiente</button>
+        </div>
+      </section>
+
+      <section class="step-panel hidden" data-step="3">
+        <h2>Instalar loopMIDI</h2>
+        <p>Vamos a descargar e instalar loopMIDI desde el sitio oficial.</p>
+        <div class="status-box" id="lm-status">Esperando…</div>
+        <div class="actions">
+          <button class="secondary" data-action="back">Atrás</button>
+          <button class="primary" data-action="install-loopmidi">Instalar</button>
+          <button class="secondary" data-action="next" id="lm-next" disabled>Siguiente</button>
+        </div>
+      </section>
+
+      <section class="step-panel hidden" data-step="4">
+        <h2>Crear puerto MIDI virtual</h2>
+        <p>Creando un puerto llamado <code>FL_MCP</code> que FL Studio va a usar para recibir MIDI.</p>
+        <div class="status-box" id="port-status">Esperando…</div>
+        <div class="actions">
+          <button class="secondary" data-action="back">Atrás</button>
+          <button class="primary" data-action="create-port">Crear puerto</button>
+          <button class="secondary" data-action="next" id="port-next" disabled>Siguiente</button>
+        </div>
+      </section>
+
+      <section class="step-panel hidden" data-step="5">
+        <h2>Instalar script en FL Studio</h2>
+        <p>Copiando <code>device_test.py</code> a la carpeta <code>Hardware</code> de FL Studio.</p>
+        <div class="status-box" id="script-status">Esperando…</div>
+        <div class="actions">
+          <button class="secondary" data-action="back">Atrás</button>
+          <button class="primary" data-action="install-script">Instalar script</button>
+          <button class="secondary" data-action="next" id="script-next" disabled>Siguiente</button>
+        </div>
+      </section>
+
+      <section class="step-panel hidden" data-step="6">
+        <h2>Registrar en Claude Desktop</h2>
+        <p>Editando <code>claude_desktop_config.json</code> (con backup automático).</p>
+        <div class="status-box" id="mcp-status">Esperando…</div>
+        <div class="actions">
+          <button class="secondary" data-action="back">Atrás</button>
+          <button class="primary" data-action="register-mcp">Registrar</button>
+          <button class="secondary" data-action="next" id="mcp-next" disabled>Siguiente</button>
+        </div>
+      </section>
+
+      <section class="step-panel hidden" data-step="7">
+        <h2>Activar el script en FL Studio</h2>
+        <p>Este paso lo tenés que hacer vos en FL Studio. Seguí estas instrucciones:</p>
+        <ol class="manual-steps">
+          <li>Abrí FL Studio</li>
+          <li>Menú <strong>Options → MIDI Settings</strong></li>
+          <li>En la lista de <em>Input</em>, encontrá <code>FL_MCP</code></li>
+          <li>Hacé click en <strong>Enable</strong> y elegí <code>FL_MCP</code> en <em>Controller type</em></li>
+          <li>Click en <strong>Refresh</strong> y cerrá la ventana de Settings</li>
+        </ol>
+        <div class="actions">
+          <button class="secondary" data-action="back">Atrás</button>
+          <button class="primary" data-action="next">Ya lo hice, continuar</button>
+        </div>
+      </section>
+
+      <section class="step-panel hidden" data-step="8">
+        <h2>Probar la conexión</h2>
+        <p>Vamos a mandar una nota MIDI a FL Studio. Si todo está bien, vas a verla aparecer.</p>
+        <div class="status-box" id="test-status">Click "Probar" cuando estés listo.</div>
+        <div class="actions">
+          <button class="secondary" data-action="back">Atrás</button>
+          <button class="primary" data-action="test-connection">Probar</button>
+          <button class="secondary" data-action="next" id="test-next" disabled>Siguiente</button>
+        </div>
+      </section>
+
+      <section class="step-panel hidden" data-step="9">
+        <h2>¡Listo!</h2>
+        <p>Tu FL MCP Studio está configurado.</p>
+        <p>De ahora en adelante vas a ver el ícono <span class="icon-pill green"></span> en la bandeja del sistema. Desde ahí podés ver el estado, reabrir este wizard o probar la conexión.</p>
+        <div class="actions">
+          <button class="primary" data-action="finish">Cerrar e ir a la bandeja</button>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="wizard.js"></script>
+</body>
+</html>

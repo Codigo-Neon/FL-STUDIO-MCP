@@ -1,0 +1,203 @@
+/* FL MCP Studio — Wizard styles. Dark mode, VS Code / Linear inspired. */
+
+:root {
+  --bg: #1e1e1e;
+  --bg-panel: #252526;
+  --bg-elev: #2d2d30;
+  --text: #d4d4d4;
+  --text-muted: #858585;
+  --accent: #0e639c;
+  --accent-hover: #1177bb;
+  --ok: #16825d;
+  --warn: #cc6633;
+  --error: #b03a3a;
+  --border: #3c3c3c;
+  --radius: 6px;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  height: 100vh;
+}
+
+.sidebar {
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  padding: 24px 16px;
+  overflow-y: auto;
+}
+
+.brand {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 24px 0;
+  color: var(--text);
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  padding: 8px 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+  position: relative;
+}
+
+.step .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.step.current { color: var(--text); font-weight: 500; }
+.step.current .dot { background: var(--accent); border-color: var(--accent); }
+.step.done .dot { background: var(--ok); border-color: var(--ok); }
+.step.error .dot { background: var(--error); border-color: var(--error); }
+
+.content {
+  padding: 32px 40px;
+  overflow-y: auto;
+}
+
+.step-panel { display: block; }
+.step-panel.hidden { display: none; }
+
+.step-panel h2 {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+}
+
+.step-panel p {
+  line-height: 1.6;
+  margin: 0 0 12px 0;
+}
+
+code {
+  background: var(--bg-elev);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: "Consolas", "Menlo", monospace;
+  font-size: 12.5px;
+}
+
+.actions {
+  margin-top: 24px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+button {
+  padding: 8px 18px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+button.primary {
+  background: var(--accent);
+  color: white;
+}
+button.primary:hover { background: var(--accent-hover); }
+button.primary:disabled { background: var(--bg-elev); color: var(--text-muted); cursor: not-allowed; }
+
+button.secondary {
+  background: var(--bg-elev);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+button.secondary:hover { background: var(--border); }
+button.secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.checklist {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+
+.checklist li {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 6px;
+}
+
+.checklist li::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin-right: 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.checklist li.ok::before { background: var(--ok); border-color: var(--ok); }
+.checklist li.missing::before { background: var(--error); border-color: var(--error); }
+
+.status-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 16px 0;
+  min-height: 48px;
+  font-family: "Consolas", monospace;
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}
+
+.status-box.ok { border-color: var(--ok); }
+.status-box.error { border-color: var(--error); color: #ff9b9b; }
+
+.manual-steps {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 16px 16px 36px;
+  margin: 16px 0;
+  line-height: 1.9;
+}
+
+.icon-pill {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin: 0 4px;
+}
+.icon-pill.green { background: var(--ok); }
