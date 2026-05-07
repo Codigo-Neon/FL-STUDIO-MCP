@@ -14,6 +14,8 @@ venv/
 *.png
 *.jpg
 *.jpeg
+# Excepción: assets del instalador (íconos del tray)
+!installer/assets/*.png
 
 # Archivos de notas/borradores personales
 instrucciones.txt
