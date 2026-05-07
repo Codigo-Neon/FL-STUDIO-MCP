@@ -140,17 +140,41 @@ send_raw_midi('90 4D 01'); time.sleep(0.01); send_raw_midi('80 4D 00')
 
 ## Sistema de Instalación (Windows)
 
-`installer/setup_engine/` es la biblioteca pura de Python que hace el setup automático del MCP en Windows. Diseñada para que la GUI del wizard (sub-proyecto C) la importe.
+`installer/` empaqueta el setup automático del MCP en Windows en 3 sub-paquetes:
+
+### `installer/setup_engine/` — Lógica pura
 
 | Módulo | Responsabilidad |
 |---|---|
 | `detect.py` | Devuelve `EnvironmentReport` con qué hay instalado (Claude Desktop, FL Studio, loopMIDI, WebView2) |
 | `claude_config.py` | Edita `claude_desktop_config.json` con backup `.bak`. Tira `ConfigCorruptedError` si el JSON está roto |
 | `fl_studio.py` | Copia `device_test.py` a `Documents/Image-Line/FL Studio/Settings/Hardware/FL_MCP/` + crea `.nfo` companion |
-| `loopmidi.py` | Descarga loopMIDI del sitio oficial, instalación silenciosa, crea/detecta puerto virtual `FL_MCP` |
+| `loopmidi.py` | Descarga loopMIDI del sitio oficial, descomprime ZIP, instalación silenciosa, crea/detecta puerto virtual `FL_MCP` |
 | `cli.py` | Wrapper argparse: `python -m installer.setup_engine.cli <subcommand>` para QA manual |
 
-Tests: `pytest tests/setup_engine/` (corre en Linux con pyfakefs + mocks de subprocess/urllib/rtmidi).
+### `installer/wizard/` — GUI primera vez
+
+| Archivo | Responsabilidad |
+|---|---|
+| `api.py` | `JsApi` — métodos callable desde JS via `pywebview.api.*`. Wraps cada función del setup_engine y la traduce a `{ok, error}` |
+| `window.py` | `launch_wizard()` — abre la ventana pywebview, inyecta JsApi, bloquea hasta cierre |
+| `ui/index.html` | 9 pasos como `<section>` apilados, ocultos via clase `.hidden` |
+| `ui/styles.css` | Dark mode estilo VS Code, sidebar 220px + main 32px padding |
+| `ui/wizard.js` | Vanilla JS — state machine de pasos, llama a `pywebview.api.*`. Usa `replaceChildren()`/`textContent` solamente (no `innerHTML`) |
+
+### `installer/tray/` — App persistente
+
+| Archivo | Responsabilidad |
+|---|---|
+| `state.py` | `AppState` — persiste `setup_completed` en `%APPDATA%\FL MCP Studio\state.json` |
+| `supervisor.py` | `Supervisor.check_status()` — detecta proceso del MCP server + verifica puerto MIDI |
+| `app.py` | `TrayApp` — pystray + menú + thread polling cada 5s |
+
+### `installer/main.py` — Entry point
+
+Lee `state.json` → si setup no completo lanza wizard; después (siempre) lanza tray.
+
+Tests: `pytest tests/wizard tests/tray tests/setup_engine` (Linux con pyfakefs + mocks de subprocess/urllib/rtmidi/psutil). QA end-to-end manual via `installer/QA_CHECKLIST.md` en VM Windows.
 
 ---
 
