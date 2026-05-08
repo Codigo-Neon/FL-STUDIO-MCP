@@ -32,8 +32,9 @@ cd installer/build
 Inno Setup is Windows-only freeware. To run it on Linux, use Wine:
 
 ```bash
-# Download the official installer
-wget https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe -O /tmp/innosetup.exe
+# Download the official installer (check https://jrsoftware.org/isdl.php for
+# the current stable version — they host on GitHub Releases now)
+wget https://github.com/jrsoftware/issrc/releases/download/is-6_7_1/innosetup-6.7.1.exe -O /tmp/innosetup.exe
 
 # Install silently into Wine's Program Files
 wine /tmp/innosetup.exe /SILENT
