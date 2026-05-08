@@ -174,7 +174,21 @@ send_raw_midi('90 4D 01'); time.sleep(0.01); send_raw_midi('80 4D 00')
 
 Lee `state.json` → si setup no completo lanza wizard; después (siempre) lanza tray.
 
-Tests: `pytest tests/wizard tests/tray tests/setup_engine` (Linux con pyfakefs + mocks de subprocess/urllib/rtmidi/psutil). QA end-to-end manual via `installer/QA_CHECKLIST.md` en VM Windows.
+### `installer/build/` — Build pipeline
+
+| Archivo | Responsabilidad |
+|---|---|
+| `fetch_python.py` | Descarga Python 3.11 embedded de python.org, parchea `_pth` para habilitar site-packages |
+| `install_deps.py` | `pip install --platform win_amd64 --only-binary=:all:` — wheels Windows desde Linux dev |
+| `stage.py` | Copia trigger.py, device_test.py, knowledge/, installer/ a `build/staging/`. Filtra `__pycache__`, `tests/`, `.pyc`. Escribe `flmcp.bat` |
+| `setup.iss` | Inno Setup script: metadata, [Files], [Icons], [Run], [UninstallDelete] |
+| `build.sh` | Orquestador: fetch → install_deps → stage → iscc (via Wine en Linux). Output: `installer/build/dist/FL-MCP-Studio-Setup-vX.Y.Z.exe` |
+
+Build local desde Linux: `cd installer/build && ./build.sh` (requiere Wine + Inno Setup 6 instalado bajo Wine — ver `installer/BUILD.md`).
+
+**No usamos PyInstaller** (deviation del spec original). Embedded Python directo es más liviano, más AV-friendly, y mantiene las paths que `wizard.js` hardcodea.
+
+Tests: `pytest tests/wizard tests/tray tests/setup_engine tests/build_pipeline` (Linux con pyfakefs/tmp_path + mocks de subprocess/urllib/rtmidi/psutil). QA end-to-end manual via `installer/QA_CHECKLIST.md` en VM Windows.
 
 ---
 
