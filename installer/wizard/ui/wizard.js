@@ -58,7 +58,20 @@
     placeholder.textContent = "Chequeando…";
     list.appendChild(placeholder);
 
-    const r = await pywebview.api.detect();
+    let r;
+    try {
+      r = await pywebview.api.detect();
+    } catch (err) {
+      // detect() doesn't return {ok, error} like other APIs; if the Python
+      // side throws, render a fallback so the user isn't stuck on this step.
+      list.replaceChildren();
+      const errLi = document.createElement("li");
+      errLi.classList.add("missing");
+      errLi.textContent = `Error al chequear el sistema: ${err && err.message ? err.message : err}`;
+      list.appendChild(errLi);
+      enableNext("diag-next");
+      return;
+    }
 
     list.replaceChildren(
       makeChecklistItem("Claude Desktop", r.claude_desktop),

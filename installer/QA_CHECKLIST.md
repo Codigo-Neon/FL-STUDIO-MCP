@@ -79,6 +79,7 @@ config file mutation against real apps.
 - [ ] Right-click → menu shows all entries
 - [ ] "Probar conexión MIDI" → toast notification with result
 - [ ] "Reabrir wizard de setup" → wizard window reopens
+   - **NOTA conocida (v1)**: en Windows, `webview.start()` requiere el main thread. Al abrir desde la bandeja se corre en thread secundario, así que puede fallar silenciosamente o tirar `RuntimeError`. Workaround temporal: cerrar el tray y re-ejecutar `python -m installer.main` (que arranca en main thread). Fix arquitectural pendiente para v2.
 - [ ] "Ver logs en vivo" → opens `%APPDATA%\FL MCP Studio\logs\` in Explorer
 - [ ] Icon color changes when MCP server starts/stops in Claude Desktop
 

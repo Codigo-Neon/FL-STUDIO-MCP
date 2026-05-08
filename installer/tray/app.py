@@ -61,7 +61,13 @@ class TrayApp:
         return f"FL MCP Studio — Server: {running} | MIDI: {port}"
 
     def _open_wizard(self, icon, item) -> None:
-        # Lazy import to avoid pulling pywebview into every tray-only run
+        # KNOWN LIMITATION: webview.start() requires the main thread on Windows
+        # (mswebview2 backend uses STA COM init). Launching from this menu
+        # callback runs on a pystray background thread, which on real Windows
+        # will fail with RuntimeError or render nothing. Fixing requires
+        # signaling the main thread to take over. Tracked for v2.
+        # On first install the wizard is launched directly from main.py on the
+        # main thread, so the happy path works.
         from installer.wizard.window import launch_wizard
         threading.Thread(target=launch_wizard, daemon=True).start()
 

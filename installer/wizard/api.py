@@ -112,6 +112,8 @@ class JsApi:
             return _ok()
         except ConfigCorruptedError as exc:
             return _err(f"Tu config de Claude Desktop está corrupta: {exc}")
+        except OSError as exc:
+            return _err(f"Error de filesystem editando la config: {exc}")
 
     def test_connection(self) -> Dict[str, Any]:
         """Send a MIDI ping to FL Studio. Returns ok if the port accepted it."""
