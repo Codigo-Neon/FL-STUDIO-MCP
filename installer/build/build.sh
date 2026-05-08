@@ -42,12 +42,15 @@ detect_iscc() {
         command -v iscc
         return
     fi
-    # Wine default install path on Linux
-    local wine_iscc="$HOME/.wine/drive_c/Program Files (x86)/Inno Setup 6/iscc.exe"
-    if [ -e "$wine_iscc" ]; then
-        echo "$wine_iscc"
-        return
-    fi
+    # Wine default install path on Linux. Inno Setup 6.x ships ISCC.exe
+    # (uppercase). Linux filesystems are case-sensitive so we check both.
+    local wine_dir="$HOME/.wine/drive_c/Program Files (x86)/Inno Setup 6"
+    for candidate in "$wine_dir/ISCC.exe" "$wine_dir/iscc.exe"; do
+        if [ -e "$candidate" ]; then
+            echo "$candidate"
+            return
+        fi
+    done
     echo ""
 }
 
