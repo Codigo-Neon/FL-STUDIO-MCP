@@ -27,6 +27,10 @@ SITE_PACKAGES="$EMBED_DIR/Lib/site-packages"
 # ---- python on host ----
 PYTHON="${PYTHON:-python3}"
 
+# Make `python -m installer.build.<module>` work regardless of CWD: prepend
+# the repo root to PYTHONPATH so the `installer` package is importable.
+export PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+
 # ---- iscc detection ----
 detect_iscc() {
     if [ -n "${ISCC_PATH:-}" ] && [ -e "$ISCC_PATH" ]; then
@@ -50,7 +54,7 @@ detect_iscc() {
 run_iscc() {
     local iscc="$1"
     local script="$2"
-    if [[ "$iscc" == *.exe ]] && [ "$(uname)" != "MINGW"* ] && [ "$(uname)" != "CYGWIN"* ]; then
+    if [[ "$iscc" == *.exe ]] && [[ "$(uname)" != MINGW* ]] && [[ "$(uname)" != CYGWIN* ]]; then
         # Linux/macOS: run via Wine
         wine "$iscc" "$script"
     else

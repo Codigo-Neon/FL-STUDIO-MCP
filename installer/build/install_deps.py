@@ -1,16 +1,16 @@
 """Cross-install Windows wheels for `requirements.txt` into the embedded
 Python's `Lib/site-packages`.
 
-Pip's `--platform win_amd64 --python-version 311 --only-binary=:all:` flags
+Pip's `--platform win_amd64 --python-version 311 --prefer-binary` flags
 let us download Windows wheels from any host (Linux or Windows). We then
 install them with `--target` to land them inside the embed dist's
 site-packages.
 
 Limitations:
-- All deps in requirements.txt MUST have a cp311-win_amd64 wheel on PyPI.
-  Plan A/B/C verified this for our 7 deps. New deps must be checked.
-- Pure-Python deps without published wheels will fail. If that happens,
-  switch to `pip download` + manual wheel building (out of scope here).
+- Top-level deps with C extensions (python-rtmidi, Pillow, psutil) MUST have
+  a cp311-win_amd64 wheel on PyPI.
+- Pure-Python deps (transitive: proxy-tools, etc.) without wheels will install
+  from sdist — `--prefer-binary` (not `--only-binary=:all:`) allows this.
 """
 import subprocess
 import sys
@@ -39,7 +39,7 @@ def install_windows_wheels(
         "--target", str(target_site_packages),
         "--platform", "win_amd64",
         "--python-version", python_version,
-        "--only-binary=:all:",
+        "--prefer-binary",
         "--upgrade",
         "-r", str(requirements_file),
     ]

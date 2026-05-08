@@ -10,7 +10,7 @@
 #define MyAppExeName "flmcp.bat"
 
 [Setup]
-AppId={{8B4F8A2D-1234-4567-89AB-FL_MCP_STUDIO_01}
+AppId={{CE2CB97E-03FB-4F5A-9336-79397DBEDD39}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
