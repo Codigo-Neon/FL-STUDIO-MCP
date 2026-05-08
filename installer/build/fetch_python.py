@@ -24,14 +24,19 @@ def embed_zip_url(version: str = PYTHON_VERSION) -> str:
 
 
 def patch_pth_to_enable_site(pth_path: Path) -> None:
-    """Uncomment the `#import site` line in the embedded `_pth` file.
+    """Patch the embedded `_pth` file so the bundled interpreter:
 
-    Without this, `Lib/site-packages` is not on sys.path and pip-installed
-    wheels are invisible. With it, the embedded interpreter behaves like a
-    normal install for our purposes.
+    1. Includes `Lib/site-packages` on sys.path (uncomment `#import site`).
+       Without this, pip-installed wheels are invisible.
+
+    2. Includes the install root (`..` relative to python.exe's dir) on
+       sys.path so `python -m installer.main` finds the `installer/` package
+       that lives next to `python-embed/`.
     """
     text = pth_path.read_text()
     text = text.replace("#import site", "import site")
+    if "..\n" not in text:
+        text = text.rstrip() + "\n..\n"
     pth_path.write_text(text)
 
 
