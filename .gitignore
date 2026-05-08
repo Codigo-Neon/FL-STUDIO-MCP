@@ -41,3 +41,8 @@ Thumbs.db
 
 # Git worktrees
 .worktrees/
+
+# Build artifacts (sub-project D)
+installer/build/.cache/
+installer/build/staging/
+installer/build/dist/
