@@ -6,3 +6,7 @@ pywebview==5.3.2
 pystray==0.19.5
 Pillow==11.0.0
 psutil==6.1.0
+# Backend de pywebview en Windows (.NET bridge para WebView2/MSHTML).
+# pywebview no lo declara como required pero sin él tira WebViewException
+# en webview.start().
+pythonnet==3.0.5

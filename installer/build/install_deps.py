@@ -70,15 +70,15 @@ def _fallback_per_package(
         ]
         if subprocess.run(binary_cmd).returncode == 0:
             continue
-        # Fallback: install without platform constraints. Pure-Python
-        # packages work this way; binary packages on a non-matching platform
-        # will install the host's wheel which won't run on Windows. Risky
-        # but only triggers when --only-binary refuses.
+        # Fallback: install without platform constraints. Pure-Python packages
+        # work this way; transitive deps are pulled too (no --no-deps) because
+        # otherwise pure-Python deps like proxy-tools (transitive of pywebview)
+        # never get installed. Binary transitive deps would install host wheels
+        # which won't run on Windows — so far we don't have any.
         sdist_cmd = [
             pip_executable, "-m", "pip", "install",
             "--target", str(target_site_packages),
             "--upgrade",
-            "--no-deps",
             req,
         ]
         subprocess.run(sdist_cmd, check=True)
