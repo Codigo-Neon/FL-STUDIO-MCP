@@ -26,11 +26,10 @@ class TestEmbedZipUrl:
 
 
 class TestPatchPthToEnableSite:
-    def test_uncomments_import_site(self, fs):
-        pth = Path("/embed/python311._pth")
-        fs.create_file(
-            str(pth),
-            contents="python311.zip\n.\n\n# Uncomment to run site.main() automatically\n#import site\n",
+    def test_uncomments_import_site(self, tmp_path):
+        pth = tmp_path / "python311._pth"
+        pth.write_text(
+            "python311.zip\n.\n\n# Uncomment to run site.main() automatically\n#import site\n"
         )
 
         patch_pth_to_enable_site(pth)
@@ -41,7 +40,7 @@ class TestPatchPthToEnableSite:
 
 
 class TestFetchAndExtract:
-    def test_downloads_and_extracts(self, monkeypatch, fs):
+    def test_downloads_and_extracts(self, monkeypatch, tmp_path):
         # Build a fake embed zip in memory
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
@@ -57,7 +56,7 @@ class TestFetchAndExtract:
             MagicMock(return_value=fake_response),
         )
 
-        target_dir = Path("/embed")
+        target_dir = tmp_path / "embed"
         result = fetch_and_extract(target_dir=target_dir)
 
         assert result == target_dir
@@ -66,7 +65,7 @@ class TestFetchAndExtract:
         pth = (target_dir / "python311._pth").read_text()
         assert "\nimport site\n" in pth
 
-    def test_creates_target_dir_if_missing(self, monkeypatch, fs):
+    def test_creates_target_dir_if_missing(self, monkeypatch, tmp_path):
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
             zf.writestr("python311._pth", "#import site\n")
@@ -77,7 +76,7 @@ class TestFetchAndExtract:
         fake_response.__exit__ = MagicMock(return_value=False)
         monkeypatch.setattr("urllib.request.urlopen", MagicMock(return_value=fake_response))
 
-        target_dir = Path("/does/not/exist/yet")
+        target_dir = tmp_path / "does/not/exist/yet"
         fetch_and_extract(target_dir=target_dir)
 
         assert target_dir.is_dir()
