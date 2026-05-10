@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="banner.png" alt="FL MCP — IA + FL Studio" width="100%">
+</p>
+
 # FL Studio MCP Server
 
 **by Franco Donati**
