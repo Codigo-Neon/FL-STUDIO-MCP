@@ -370,9 +370,17 @@ pip install mcp mido python-rtmidi
 # 4. En FL Studio: MIDI Settings > Input "MCP-FL" > Controller "Test Controller"
 ```
 
-### Configuracion de Claude
+### Configuracion del Cliente MCP
 
-**Claude Desktop** (`claude_desktop_config.json`):
+El servidor es un MCP estandar (stdio), asi que funciona con **cualquier cliente compatible con Model Context Protocol**. Aca estan las configuraciones para los mas comunes:
+
+#### Claude Desktop
+
+Archivo: `claude_desktop_config.json`
+- Linux: `~/.config/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
 ```json
 {
   "mcpServers": {
@@ -384,7 +392,14 @@ pip install mcp mido python-rtmidi
 }
 ```
 
-**Claude Code** (`.claude/settings.json`):
+#### Claude Code
+
+Comando rapido:
+```bash
+claude mcp add flstudio python /ruta/completa/a/trigger.py
+```
+
+O manualmente en `~/.claude.json` (global) o `.claude/settings.json` (por proyecto):
 ```json
 {
   "mcpServers": {
@@ -395,6 +410,40 @@ pip install mcp mido python-rtmidi
   }
 }
 ```
+
+#### OpenCode
+
+Archivo: `opencode.json` (raiz del proyecto) o `~/.config/opencode/opencode.json` (global).
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "flstudio": {
+      "type": "local",
+      "command": ["python", "/ruta/completa/a/trigger.py"],
+      "enabled": true
+    }
+  }
+}
+```
+
+Reiniciar OpenCode despues de editar. Para verificar: `/mcp` dentro de la TUI listara `flstudio` con sus 73 tools.
+
+#### Otros clientes (Cursor, Continue, Cline, Zed)
+
+Todos siguen la misma idea: `command: "python"`, `args: ["/ruta/a/trigger.py"]`. Consultar la doc del cliente para la ubicacion exacta del archivo de config.
+
+### Verificacion
+
+Antes de usar el MCP, asegurate de que:
+
+1. **FL Studio esta abierto** con un proyecto cargado
+2. **`device_test.py` esta corriendo** como MIDI Script (MIDI Settings > Controller > "Test Controller")
+3. **El puerto MIDI esta conectado**:
+   - Linux: `aconnect -l` debe mostrar VirMIDI → WINE ALSA Input
+   - Windows: loopMIDI con puerto `FL_MCP` activo
+4. **El cliente reconoce el server**: en Claude Code `claude mcp list`, en OpenCode `/mcp`
 
 ---
 
