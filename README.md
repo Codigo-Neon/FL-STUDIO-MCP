@@ -6,9 +6,11 @@
 
 **by Franco Donati**
 
-Servidor MCP (Model Context Protocol) que conecta Claude con FL Studio a traves de MIDI. Controla FL Studio desde una IA: genera beats, melodias, progresiones de acordes, lineas de bajo, configura el mixer, diseña sonidos en Serum 2, masteriza con Ozone 12, limpia audio con RX 11, y recibe guias de produccion profesional — todo con lenguaje natural.
+Servidor MCP (Model Context Protocol) que conecta cualquier cliente MCP — **Claude Desktop, Claude Code, OpenCode, Cursor, Continue, Cline, Zed** — con FL Studio a traves de MIDI. Controla FL Studio desde una IA: genera beats, melodias, progresiones de acordes, lineas de bajo, configura el mixer, diseña sonidos en Serum 2, masteriza con Ozone 12, limpia audio con RX 11, y recibe guias de produccion profesional — todo con lenguaje natural.
 
 Funciona en **Linux** (Kali, Ubuntu, etc.) con FL Studio corriendo en **Wine**, y en **Windows** con FL Studio nativo.
+
+> Probado en producción con **Claude Desktop**, **Claude Code** y **OpenCode**. Cualquier cliente compatible con MCP (stdio) lo puede usar — ver [Configuracion del Cliente MCP](#configuracion-del-cliente-mcp) para los snippets de cada uno.
 
 ---
 
@@ -16,7 +18,7 @@ Funciona en **Linux** (Kali, Ubuntu, etc.) con FL Studio corriendo en **Wine**, 
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    CLAUDE (MCP)                      │
+│       CLIENTE MCP (Claude / OpenCode / Cursor...)   │
 │                                                     │
 │  trigger.py — FastMCP Server (1,839 lineas)         │
 │  73 tools | 9 resources | 5 prompts                │
@@ -534,6 +536,12 @@ FL MCP/
 | Estilos de bajo | 4 |
 | Perfiles de productores | 13 |
 | Plugins con guias | 40+ |
+
+---
+
+## Disclaimer
+
+Las referencias a productores, artistas y marcas de plugins (FabFilter, iZotope, Antares, Cymatics, Image-Line, Serum, etc.) son nominativas y con fines **educativos e informativos** unicamente. Este proyecto no esta afiliado, patrocinado ni endosado por ninguno de ellos. Los nombres de productores se usan para describir tecnicas y estilos historicos de produccion; no se incluyen samples, audio, letras, fotos ni logos protegidos por derechos de autor.
 
 ---
 
