@@ -66,3 +66,34 @@ class TestDefaults:
 
     def test_default_port(self):
         assert DEFAULT_PORT == 8765
+
+
+import io
+from bridge.protocol import FrameReader
+
+
+class TestFrameReader:
+    def test_reads_single_message(self):
+        stream = io.BufferedReader(io.BytesIO(b'{"type":"req","id":"x","method":"ping","params":{}}\n'))
+        reader = FrameReader(stream)
+        msg = reader.read_message()
+        assert msg["method"] == "ping"
+
+    def test_reads_multiple_messages(self):
+        data = (
+            b'{"type":"req","id":"1","method":"a","params":{}}\n'
+            b'{"type":"req","id":"2","method":"b","params":{}}\n'
+        )
+        reader = FrameReader(io.BufferedReader(io.BytesIO(data)))
+        assert reader.read_message()["id"] == "1"
+        assert reader.read_message()["id"] == "2"
+
+    def test_returns_none_on_eof(self):
+        reader = FrameReader(io.BufferedReader(io.BytesIO(b"")))
+        assert reader.read_message() is None
+
+    def test_skips_blank_lines(self):
+        data = b'\n\n{"type":"req","id":"x","method":"ping","params":{}}\n'
+        reader = FrameReader(io.BufferedReader(io.BytesIO(data)))
+        msg = reader.read_message()
+        assert msg["method"] == "ping"

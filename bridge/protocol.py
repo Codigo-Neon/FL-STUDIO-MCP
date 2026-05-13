@@ -17,6 +17,7 @@ __all__ = [
     "DEFAULT_HOST", "DEFAULT_PORT",
     "make_request", "make_response_ok", "make_response_error", "make_event",
     "encode", "decode_line",
+    "FrameReader",
     "ProtocolError",
 ]
 
@@ -60,3 +61,24 @@ def decode_line(line: str) -> dict:
     if "type" not in msg:
         raise ProtocolError("missing 'type' field")
     return msg
+
+
+class FrameReader:
+    """Wrap a binary readable stream to yield JSONL messages.
+
+    Returns None on EOF. Skips blank lines silently — they're not an error,
+    they can appear if a writer accidentally double-newlines.
+    """
+
+    def __init__(self, stream) -> None:
+        self._stream = stream
+
+    def read_message(self) -> dict | None:
+        while True:
+            raw = self._stream.readline()
+            if not raw:
+                return None
+            line = raw.decode("utf-8")
+            if not line.strip():
+                continue
+            return decode_line(line)
