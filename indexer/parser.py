@@ -4,6 +4,10 @@ Converts file paths into structured tags by:
 1. Tokenizing the filename (and optionally the folder path)
 2. Matching tokens against keyword dictionaries
 3. Extracting numeric metadata (BPM, key) with regex
+
+camelCase splitting is applied only when the stem contains no explicit
+separator characters (_, -, space, /, \\). This avoids mangling filenames
+like "Kick-BoomBap" which would otherwise yield spurious extra tokens.
 """
 import re
 from pathlib import Path
@@ -15,7 +19,11 @@ from indexer.keywords import (
     MOOD_KEYWORDS,
     LOOP_KEYWORDS,
     ONESHOT_KEYWORDS,
+    AUDIO_EXTENSIONS,
 )
+
+# Stems (no leading dot) of recognized audio extensions, derived once.
+_AUDIO_EXT_STEMS = frozenset(ext.lstrip(".") for ext in AUDIO_EXTENSIONS)
 
 __all__ = [
     "tokenize",
@@ -24,9 +32,9 @@ __all__ = [
 
 
 # Split on: _ - . space / \  AND between lowercase→uppercase transitions (camelCase)
-_CAMEL_SPLIT = re.compile(r'(?<=[a-z])(?=[A-Z])')
-_TOKEN_SPLIT = re.compile(r'[_\-\.\s/\\]+')
-_HAS_SEPARATOR = re.compile(r'[_\-\s/\\]')
+_CAMEL_SPLIT = re.compile(r'(?<=[a-z])(?=[A-Z])')   # lowercase→uppercase boundary
+_TOKEN_SPLIT = re.compile(r'[_\-\.\s/\\]+')          # any separator run
+_HAS_SEPARATOR = re.compile(r'[_\-\s/\\]')           # presence check (dots excluded: may be extension)
 
 
 def tokenize(text: str) -> list[str]:
@@ -39,9 +47,7 @@ def tokenize(text: str) -> list[str]:
     no explicit separators — i.e. a pure camelCase identifier like "KickBoomBap".
     When separators are present, each segment is kept as-is (lowercased).
     """
-    if text.lower().rsplit(".", 1)[-1] in (
-        "wav", "mp3", "flac", "ogg", "aiff", "aif"
-    ):
+    if text.lower().rsplit(".", 1)[-1] in _AUDIO_EXT_STEMS:
         text = text.rsplit(".", 1)[0]
     # Apply camelCase splitting only when there are no explicit separators
     if not _HAS_SEPARATOR.search(text):

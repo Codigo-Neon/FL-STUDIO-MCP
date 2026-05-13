@@ -9,6 +9,11 @@ class TestTokenize:
     def test_splits_on_dash(self):
         assert tokenize("Kick-BoomBap.wav") == ["kick", "boombap"]
 
+    def test_camelcase_suppressed_when_separator_present(self):
+        # When an explicit separator (-) is present, camelCase inside a
+        # segment is NOT split — protects the _HAS_SEPARATOR guard contract.
+        assert tokenize("Kick-BoomBap.wav") == ["kick", "boombap"]
+
     def test_splits_on_space(self):
         assert tokenize("Kick Boom Bap.wav") == ["kick", "boom", "bap"]
 
@@ -39,6 +44,9 @@ class TestTokenize:
         tokens = tokenize("808_Sub_5.wav")
         assert "808" in tokens
         assert "sub" in tokens
+
+    def test_empty_string(self):
+        assert tokenize("") == []
 
 
 class TestMatchKeywords:
