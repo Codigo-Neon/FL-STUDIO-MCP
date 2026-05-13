@@ -29,6 +29,9 @@ class BridgeClient:
 
     Reconnection is NOT automatic in v1 — explicit `connect()` and `close()`.
     Reconnect-on-failure is added in a later task.
+
+    Malformed frames (ProtocolError) are skipped silently by the reader; any
+    in-flight request whose response frame was malformed will time out.
     """
 
     def __init__(
@@ -49,6 +52,8 @@ class BridgeClient:
         self._closed = threading.Event()
 
     def connect(self) -> None:
+        if self._reader_thread is not None and self._reader_thread.is_alive():
+            raise BridgeError("already connected; call close() first")
         try:
             self._sock = socket.create_connection(
                 (self._host, self._port), timeout=self._connect_timeout
@@ -71,7 +76,10 @@ class BridgeClient:
         with self._waiters_lock:
             self._waiters[request_id] = queue
         try:
-            self._stream.write(encode(make_request(request_id, method, params)).encode("utf-8"))
+            try:
+                self._stream.write(encode(make_request(request_id, method, params)).encode("utf-8"))
+            except OSError as exc:
+                raise BridgeError(f"write failed: {exc}") from exc
             try:
                 response = queue.get(timeout=timeout)
             except Empty:
@@ -99,6 +107,8 @@ class BridgeClient:
                 self._sock.close()
             except OSError:
                 pass
+        if self._reader_thread is not None:
+            self._reader_thread.join(timeout=2.0)
 
     def _reader_loop(self) -> None:
         reader = FrameReader(self._stream)
