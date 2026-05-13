@@ -32,6 +32,12 @@ class TestSampleTypeKeywords:
             for kw in keywords:
                 assert kw == kw.lower(), f"Keyword '{kw}' in {category} not lowercase"
 
+    def test_fx_does_not_include_boom_or_hit(self):
+        # "boom" would collide with boom_bap filenames; "hit" is too generic
+        # (snare_hit, kick_hit etc would misclassify as fx).
+        assert "boom" not in SAMPLE_TYPE_KEYWORDS["fx"]
+        assert "hit" not in SAMPLE_TYPE_KEYWORDS["fx"]
+
 
 class TestGenreKeywords:
     def test_includes_main_genres(self):
@@ -61,3 +67,8 @@ class TestExtensions:
         assert ".fst" in SKIP_EXTENSIONS  # FL preset
         assert ".fxp" in SKIP_EXTENSIONS  # VST preset
         assert ".nki" in SKIP_EXTENSIONS  # Kontakt
+
+    def test_loop_keywords_exclude_stem(self):
+        # Stems are separated audio tracks, not loops
+        from indexer.keywords import LOOP_KEYWORDS
+        assert "stem" not in LOOP_KEYWORDS

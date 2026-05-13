@@ -39,7 +39,7 @@ SAMPLE_TYPE_KEYWORDS: dict[str, list[str]] = {
     # FX & vocals
     "fx": ["fx", "riser", "downer", "impact", "sweep", "swell",
            "transition", "uplift", "drop", "reverse", "rev",
-           "whoosh", "boom", "hit"],
+           "whoosh"],
     "vocal": ["vocal", "vox", "vocals", "voice", "voz", "adlib", "ad_lib"],
 }
 
@@ -91,16 +91,16 @@ MOOD_KEYWORDS: dict[str, list[str]] = {
 }
 
 
-LOOP_KEYWORDS = ["loop", "loops", "groove", "rhythm", "rhy", "stem"]
+LOOP_KEYWORDS: list[str] = ["loop", "loops", "groove", "rhythm", "rhy"]
 
 
-ONESHOT_KEYWORDS = ["one_shot", "oneshot", "one-shot", "shot",
-                    "single", "hit", "one"]
+ONESHOT_KEYWORDS: list[str] = ["one_shot", "oneshot", "one-shot", "shot",
+                    "single", "one"]
 
 
-AUDIO_EXTENSIONS = [".wav", ".mp3", ".flac", ".ogg", ".aiff", ".aif"]
+AUDIO_EXTENSIONS: list[str] = [".wav", ".mp3", ".flac", ".ogg", ".aiff", ".aif"]
 
-SKIP_EXTENSIONS = [
+SKIP_EXTENSIONS: list[str] = [
     # FL Studio internals
     ".fst", ".fnv", ".flp", ".dat",
     # VST/Plugin presets
