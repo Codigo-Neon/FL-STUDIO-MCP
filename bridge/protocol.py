@@ -11,7 +11,7 @@ FL-side embedded Python can use it without any pip install.
 """
 from __future__ import annotations
 import json
-from typing import Any
+from typing import Any, BinaryIO
 
 __all__ = [
     "DEFAULT_HOST", "DEFAULT_PORT",
@@ -67,10 +67,12 @@ class FrameReader:
     """Wrap a binary readable stream to yield JSONL messages.
 
     Returns None on EOF. Skips blank lines silently — they're not an error,
-    they can appear if a writer accidentally double-newlines.
+    they can appear if a writer accidentally double-newlines. Raises
+    ProtocolError (propagated from decode_line) when a non-blank line is
+    not a valid bridge message; callers decide whether to skip or fail.
     """
 
-    def __init__(self, stream) -> None:
+    def __init__(self, stream: BinaryIO) -> None:
         self._stream = stream
 
     def read_message(self) -> dict | None:

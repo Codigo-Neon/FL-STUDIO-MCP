@@ -1,10 +1,12 @@
 """Tests for bridge protocol message types and serialization."""
+import io
 import json
 import pytest
 from bridge.protocol import (
     DEFAULT_HOST, DEFAULT_PORT,
     make_request, make_response_ok, make_response_error, make_event,
     encode, decode_line,
+    FrameReader,
     ProtocolError,
 )
 
@@ -68,10 +70,6 @@ class TestDefaults:
         assert DEFAULT_PORT == 8765
 
 
-import io
-from bridge.protocol import FrameReader
-
-
 class TestFrameReader:
     def test_reads_single_message(self):
         stream = io.BufferedReader(io.BytesIO(b'{"type":"req","id":"x","method":"ping","params":{}}\n'))
@@ -97,3 +95,9 @@ class TestFrameReader:
         reader = FrameReader(io.BufferedReader(io.BytesIO(data)))
         msg = reader.read_message()
         assert msg["method"] == "ping"
+
+    def test_raises_protocol_error_on_malformed_line(self):
+        data = b'not json\n'
+        reader = FrameReader(io.BufferedReader(io.BytesIO(data)))
+        with pytest.raises(ProtocolError):
+            reader.read_message()
