@@ -50,7 +50,6 @@ class BridgeServer:
         self._client_stream = None
         self._client_lock = threading.Lock()
         self._listen_thread: threading.Thread | None = None
-        self._reader_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self.pending_requests: Queue = Queue()
 
@@ -124,11 +123,11 @@ class BridgeServer:
                     self._client_stream.close()
                 except OSError:
                     pass
-                if self._client_sock is not None:
-                    try:
-                        self._client_sock.close()
-                    except OSError:
-                        pass
+            if self._client_sock is not None:
+                try:
+                    self._client_sock.close()
+                except OSError:
+                    pass
             self._client_sock = conn
             self._client_stream = stream
         reader = FrameReader(stream)

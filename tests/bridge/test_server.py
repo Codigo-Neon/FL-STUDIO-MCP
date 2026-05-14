@@ -6,7 +6,6 @@ normal Python process and connect from another thread.
 import json
 import socket
 import threading
-import time
 import pytest
 from bridge.server import BridgeServer
 from bridge.protocol import make_response_ok
@@ -84,8 +83,10 @@ class TestBridgeServerEvents:
         try:
             sock = socket.create_connection(("127.0.0.1", free_port), timeout=1.0)
             f = sock.makefile("rwb", buffering=0)
-            # wait for server to register the client
-            time.sleep(0.1)
+            # Send a probe request and wait for it on the queue — this is
+            # deterministic proof that the server has registered the client.
+            f.write(b'{"type":"req","id":"probe","method":"x","params":{}}\n')
+            server.pending_requests.get(timeout=1.0)
             server.send_message(make_event("bpm_changed", {"new": 120}))
             line = f.readline()
             msg = json.loads(line.decode("utf-8"))
