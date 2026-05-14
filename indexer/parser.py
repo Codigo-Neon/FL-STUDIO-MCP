@@ -28,6 +28,7 @@ _AUDIO_EXT_STEMS = frozenset(ext.lstrip(".") for ext in AUDIO_EXTENSIONS)
 __all__ = [
     "tokenize",
     "match_keywords",
+    "extract_bpm",
 ]
 
 
@@ -35,6 +36,8 @@ __all__ = [
 _CAMEL_SPLIT = re.compile(r'(?<=[a-z])(?=[A-Z])')   # lowercase→uppercase boundary
 _TOKEN_SPLIT = re.compile(r'[_\-\.\s/\\]+')          # any separator run
 _HAS_SEPARATOR = re.compile(r'[_\-\s/\\]')           # presence check (dots excluded: may be extension)
+
+_BPM_REGEX = re.compile(r'(?<!\d)(\d{2,3})\s*bpm(?!\w)', re.IGNORECASE)
 
 
 def tokenize(text: str) -> list[str]:
@@ -55,6 +58,21 @@ def tokenize(text: str) -> list[str]:
     # Then split on all separators (including dots between non-extension segments)
     tokens = _TOKEN_SPLIT.split(text)
     return [t.lower() for t in tokens if t]
+
+
+def extract_bpm(text: str, min_bpm: int = 40, max_bpm: int = 220) -> int | None:
+    """Extract BPM from a filename or path.
+
+    Looks for explicit "<number>bpm" or "<number> bpm" markers. Returns None
+    if no marker found or the number is out of plausible musical range.
+    """
+    m = _BPM_REGEX.search(text)
+    if not m:
+        return None
+    bpm = int(m.group(1))
+    if bpm < min_bpm or bpm > max_bpm:
+        return None
+    return bpm
 
 
 def match_keywords(tokens: list[str], dictionary: dict[str, list[str]]) -> list[str]:

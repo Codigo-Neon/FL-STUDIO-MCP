@@ -1,5 +1,5 @@
 """Tests for the filename parser."""
-from indexer.parser import tokenize, match_keywords
+from indexer.parser import tokenize, match_keywords, extract_bpm
 
 
 class TestTokenize:
@@ -69,3 +69,34 @@ class TestMatchKeywords:
         from indexer.keywords import MOOD_KEYWORDS
         matches = match_keywords(["punchy", "vintage", "kick"], MOOD_KEYWORDS)
         assert sorted(matches) == ["punchy", "vintage"]
+
+
+class TestExtractBpm:
+    def test_explicit_bpm_suffix(self):
+        assert extract_bpm("Loop_90bpm.wav") == 90
+
+    def test_explicit_bpm_with_space(self):
+        assert extract_bpm("Loop 140 bpm.wav") == 140
+
+    def test_explicit_bpm_uppercase(self):
+        assert extract_bpm("Loop_120BPM.wav") == 120
+
+    def test_bpm_in_folder(self):
+        assert extract_bpm("/packs/Trap_140bpm/loop.wav") == 140
+
+    def test_no_bpm_returns_none(self):
+        assert extract_bpm("Kick_Punchy.wav") is None
+
+    def test_rejects_bpm_out_of_range(self):
+        # 999 BPM is nonsense — likely a sample ID, not tempo
+        assert extract_bpm("Kick_999bpm.wav") is None
+
+    def test_rejects_bpm_under_40(self):
+        assert extract_bpm("Loop_30bpm.wav") is None
+
+    def test_three_digit_bpm_within_range(self):
+        assert extract_bpm("Loop_174bpm.wav") == 174  # DnB territory
+
+    def test_ignores_year_like_numbers(self):
+        # "2024" in filename is not a BPM
+        assert extract_bpm("Sample_2024.wav") is None
