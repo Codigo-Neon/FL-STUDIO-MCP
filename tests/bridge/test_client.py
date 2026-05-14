@@ -5,6 +5,7 @@ enough that mocking the socket layer obscures more than it reveals.
 """
 import socket
 import threading
+import time
 import pytest
 from bridge.client import BridgeClient, BridgeError
 from bridge.protocol import encode, make_response_ok
@@ -148,7 +149,7 @@ class TestBridgeClientEvents:
             client.request("any", timeout=0.2)
         except BridgeError:
             pass  # we don't expect a response
-        event.wait(timeout=1.0)
+        assert event.wait(timeout=1.0), "callback was not invoked within 1 second"
         client.close()
 
         assert received == [("bpm_changed", {"new": 120})]
@@ -197,4 +198,42 @@ class TestBridgeClientReconnect:
         # re-established the connection.
         r2 = client.request("ping", timeout=3.0)
         assert r2 == {"hit": 2}
+        client.close()
+
+    def test_disconnect_without_auto_reconnect_fails_subsequent_requests(self, free_port):
+        import json
+
+        ready = threading.Event()
+
+        def server_thread():
+            srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            srv.bind(("127.0.0.1", free_port))
+            srv.listen(1)
+            ready.set()
+            conn, _ = srv.accept()
+            f = conn.makefile("rwb", buffering=0)
+            line = f.readline()
+            req = json.loads(line.decode("utf-8"))
+            resp = encode(make_response_ok(req["id"], {"hit": 1}))
+            f.write(resp.encode("utf-8"))
+            f.close()
+            conn.close()
+            srv.close()
+
+        t = threading.Thread(target=server_thread, daemon=True)
+        t.start()
+        ready.wait(timeout=2.0)
+
+        client = BridgeClient(
+            host="127.0.0.1", port=free_port,
+            connect_timeout=1.0, auto_reconnect=False,
+        )
+        client.connect()
+        r1 = client.request("ping", timeout=1.0)
+        assert r1 == {"hit": 1}
+        # Server has closed; wait for reader to notice
+        time.sleep(0.3)
+        with pytest.raises(BridgeError):
+            client.request("ping", timeout=0.5)
         client.close()

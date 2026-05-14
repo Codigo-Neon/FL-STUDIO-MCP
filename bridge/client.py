@@ -28,8 +28,12 @@ class BridgeClient:
     background reader thread distributes responses to waiters via per-request
     queues keyed by request id.
 
-    Auto-reconnect is off by default. Pass `auto_reconnect=True` to enable
-    exponential-backoff reconnection on EOF / connection drop.
+    When `auto_reconnect=True`, the reader loop transparently reopens the
+    socket on disconnect with exponential backoff starting at
+    `reconnect_initial_delay` seconds, doubling per attempt, capped at
+    `reconnect_max_delay`. Pending requests are failed with "connection lost"
+    during the disconnect window; if a request was issued during reconnect
+    it waits on `_connected` up to min(timeout, 2.0) seconds before failing.
 
     Malformed frames (ProtocolError) are skipped silently by the reader; any
     in-flight request whose response frame was malformed will time out.
@@ -68,6 +72,19 @@ class BridgeClient:
         self._reader_thread.start()
 
     def _open_socket(self) -> None:
+        # Close any stale socket/stream from a previous attempt (reconnect path).
+        if self._stream is not None:
+            try:
+                self._stream.close()
+            except OSError:
+                pass
+            self._stream = None
+        if self._sock is not None:
+            try:
+                self._sock.close()
+            except OSError:
+                pass
+            self._sock = None
         try:
             self._sock = socket.create_connection((self._host, self._port), timeout=self._connect_timeout)
         except OSError as exc:
@@ -178,15 +195,13 @@ class BridgeClient:
     def _fail_pending_requests(self, reason: str) -> None:
         from bridge.protocol import make_response_error
         with self._waiters_lock:
-            ids = list(self._waiters.keys())
-        for request_id in ids:
-            with self._waiters_lock:
-                queue = self._waiters.get(request_id)
-            if queue is not None:
-                try:
-                    queue.put_nowait(make_response_error(request_id, reason))
-                except Exception:
-                    pass
+            waiters = dict(self._waiters)
+            self._waiters.clear()
+        for request_id, queue in waiters.items():
+            try:
+                queue.put_nowait(make_response_error(request_id, reason))
+            except Exception:
+                pass
 
     def _dispatch(self, msg: dict) -> None:
         if msg.get("type") == "res":
