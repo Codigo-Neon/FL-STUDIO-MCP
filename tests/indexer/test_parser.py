@@ -10,9 +10,10 @@ class TestTokenize:
         assert tokenize("Kick-BoomBap.wav") == ["kick", "boombap"]
 
     def test_camelcase_suppressed_when_separator_present(self):
-        # When an explicit separator (-) is present, camelCase inside a
-        # segment is NOT split — protects the _HAS_SEPARATOR guard contract.
-        assert tokenize("Kick-BoomBap.wav") == ["kick", "boombap"]
+        # "FatBoom" is a camelCase segment, but the dash makes _HAS_SEPARATOR
+        # fire and prevents camelCase splitting. If the guard were removed,
+        # this would yield ["kick", "fat", "boom"] instead.
+        assert tokenize("Kick-FatBoom.wav") == ["kick", "fatboom"]
 
     def test_splits_on_space(self):
         assert tokenize("Kick Boom Bap.wav") == ["kick", "boom", "bap"]
