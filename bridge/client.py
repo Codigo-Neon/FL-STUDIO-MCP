@@ -2,6 +2,7 @@
 from __future__ import annotations
 import socket
 import threading
+import time
 import uuid
 from queue import Queue, Empty
 from typing import Callable
@@ -27,8 +28,8 @@ class BridgeClient:
     background reader thread distributes responses to waiters via per-request
     queues keyed by request id.
 
-    Reconnection is NOT automatic in v1 — explicit `connect()` and `close()`.
-    Reconnect-on-failure is added in a later task.
+    Auto-reconnect is off by default. Pass `auto_reconnect=True` to enable
+    exponential-backoff reconnection on EOF / connection drop.
 
     Malformed frames (ProtocolError) are skipped silently by the reader; any
     in-flight request whose response frame was malformed will time out.
@@ -39,10 +40,16 @@ class BridgeClient:
         host: str = DEFAULT_HOST,
         port: int = DEFAULT_PORT,
         connect_timeout: float = 2.0,
+        auto_reconnect: bool = False,
+        reconnect_initial_delay: float = 0.5,
+        reconnect_max_delay: float = 30.0,
     ) -> None:
         self._host = host
         self._port = port
         self._connect_timeout = connect_timeout
+        self._auto_reconnect = auto_reconnect
+        self._reconnect_initial_delay = reconnect_initial_delay
+        self._reconnect_max_delay = reconnect_max_delay
         self._sock: socket.socket | None = None
         self._stream = None
         self._reader_thread: threading.Thread | None = None
@@ -50,46 +57,76 @@ class BridgeClient:
         self._waiters_lock = threading.Lock()
         self._event_callbacks: list[Callable[[str, dict], None]] = []
         self._closed = threading.Event()
+        self._connected = threading.Event()
+        self._write_lock = threading.Lock()
 
     def connect(self) -> None:
         if self._reader_thread is not None and self._reader_thread.is_alive():
             raise BridgeError("already connected; call close() first")
+        self._open_socket()
+        self._reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
+        self._reader_thread.start()
+
+    def _open_socket(self) -> None:
         try:
-            self._sock = socket.create_connection(
-                (self._host, self._port), timeout=self._connect_timeout
-            )
+            self._sock = socket.create_connection((self._host, self._port), timeout=self._connect_timeout)
         except OSError as exc:
             raise BridgeError(f"connect failed: {exc}") from exc
         self._sock.settimeout(None)
         self._stream = self._sock.makefile("rwb", buffering=0)
-        self._reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
-        self._reader_thread.start()
+        self._connected.set()
 
     def is_connected(self) -> bool:
-        return self._sock is not None and not self._closed.is_set()
+        return self._connected.is_set() and not self._closed.is_set()
 
     def request(self, method: str, params: dict | None = None, timeout: float = 5.0) -> dict:
-        if not self.is_connected():
-            raise BridgeError("not connected")
-        request_id = uuid.uuid4().hex[:12]
-        queue: Queue = Queue(maxsize=1)
-        with self._waiters_lock:
-            self._waiters[request_id] = queue
-        try:
-            try:
-                self._stream.write(encode(make_request(request_id, method, params)).encode("utf-8"))
-            except OSError as exc:
-                raise BridgeError(f"write failed: {exc}") from exc
-            try:
-                response = queue.get(timeout=timeout)
-            except Empty:
-                raise BridgeError(f"request '{method}' timeout after {timeout}s")
-        finally:
+        if self._closed.is_set():
+            raise BridgeError("client closed")
+        deadline = time.monotonic() + timeout
+        while True:
+            # If we're mid-reconnect, give the reader a moment to re-establish.
+            if not self._connected.is_set():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise BridgeError("not connected")
+                if not self._connected.wait(timeout=min(remaining, 2.0)):
+                    raise BridgeError("not connected")
+            if self._closed.is_set():
+                raise BridgeError("client closed")
+            request_id = uuid.uuid4().hex[:12]
+            queue: Queue = Queue(maxsize=1)
             with self._waiters_lock:
-                self._waiters.pop(request_id, None)
-        if not response.get("ok"):
-            raise BridgeError(response.get("error", "unknown error"))
-        return response.get("result")
+                self._waiters[request_id] = queue
+            try:
+                line = encode(make_request(request_id, method, params)).encode("utf-8")
+                try:
+                    with self._write_lock:
+                        if self._stream is None:
+                            raise BridgeError("stream closed")
+                        self._stream.write(line)
+                except OSError as exc:
+                    raise BridgeError(f"write failed: {exc}") from exc
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise BridgeError(f"request '{method}' timeout after {timeout}s")
+                try:
+                    response = queue.get(timeout=remaining)
+                except Empty:
+                    raise BridgeError(f"request '{method}' timeout after {timeout}s")
+            finally:
+                with self._waiters_lock:
+                    self._waiters.pop(request_id, None)
+            # If the connection dropped while waiting, retry if auto_reconnect is on.
+            if (
+                not response.get("ok")
+                and response.get("error") == "connection lost"
+                and self._auto_reconnect
+                and not self._closed.is_set()
+            ):
+                continue
+            if not response.get("ok"):
+                raise BridgeError(response.get("error", "unknown error"))
+            return response.get("result")
 
     def on_event(self, callback: Callable[[str, dict], None]) -> None:
         """Register a callback invoked from the reader thread for every event."""
@@ -97,6 +134,7 @@ class BridgeClient:
 
     def close(self) -> None:
         self._closed.set()
+        self._connected.clear()
         if self._stream is not None:
             try:
                 self._stream.close()
@@ -111,18 +149,44 @@ class BridgeClient:
             self._reader_thread.join(timeout=2.0)
 
     def _reader_loop(self) -> None:
-        reader = FrameReader(self._stream)
-        try:
-            while not self._closed.is_set():
+        delay = self._reconnect_initial_delay
+        while not self._closed.is_set():
+            reader = FrameReader(self._stream)
+            try:
+                while not self._closed.is_set():
+                    try:
+                        msg = reader.read_message()
+                    except ProtocolError:
+                        continue
+                    if msg is None:
+                        break
+                    self._dispatch(msg)
+            except OSError:
+                pass
+            self._connected.clear()
+            self._fail_pending_requests("connection lost")
+            if not self._auto_reconnect or self._closed.is_set():
+                break
+            time.sleep(delay)
+            delay = min(delay * 2, self._reconnect_max_delay)
+            try:
+                self._open_socket()
+                delay = self._reconnect_initial_delay  # reset on success
+            except BridgeError:
+                continue
+
+    def _fail_pending_requests(self, reason: str) -> None:
+        from bridge.protocol import make_response_error
+        with self._waiters_lock:
+            ids = list(self._waiters.keys())
+        for request_id in ids:
+            with self._waiters_lock:
+                queue = self._waiters.get(request_id)
+            if queue is not None:
                 try:
-                    msg = reader.read_message()
-                except ProtocolError:
-                    continue
-                if msg is None:
-                    break  # EOF
-                self._dispatch(msg)
-        finally:
-            self._closed.set()
+                    queue.put_nowait(make_response_error(request_id, reason))
+                except Exception:
+                    pass
 
     def _dispatch(self, msg: dict) -> None:
         if msg.get("type") == "res":

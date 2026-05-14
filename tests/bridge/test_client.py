@@ -121,3 +121,80 @@ class TestBridgeClientRequest:
         result = client.request("ping", timeout=1.0)
         assert result == {"ok": True}
         client.close()
+
+
+class TestBridgeClientEvents:
+    def test_event_invokes_callback(self, free_port):
+        from bridge.protocol import make_event
+
+        received = []
+        event = threading.Event()
+
+        def handler(line):
+            # push an event without waiting for a request
+            return encode(make_event(name="bpm_changed", data={"new": 120}))
+
+        _start_echo_server(free_port, handler)
+        client = BridgeClient(host="127.0.0.1", port=free_port, connect_timeout=1.0)
+        client.connect()
+
+        def on_evt(name, data):
+            received.append((name, data))
+            event.set()
+
+        client.on_event(on_evt)
+        # Trigger a write to get the server to send the event
+        try:
+            client.request("any", timeout=0.2)
+        except BridgeError:
+            pass  # we don't expect a response
+        event.wait(timeout=1.0)
+        client.close()
+
+        assert received == [("bpm_changed", {"new": 120})]
+
+
+class TestBridgeClientReconnect:
+    def test_request_after_disconnect_reconnects(self, free_port):
+        import json
+
+        connection_count = [0]
+        server_ready = threading.Event()
+
+        def server_thread():
+            srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            srv.bind(("127.0.0.1", free_port))
+            srv.listen(2)
+            server_ready.set()
+            for _ in range(2):
+                conn, _ = srv.accept()
+                connection_count[0] += 1
+                f = conn.makefile("rwb", buffering=0)
+                line = f.readline()
+                req = json.loads(line.decode("utf-8"))
+                resp = encode(make_response_ok(req["id"], {"hit": connection_count[0]}))
+                f.write(resp.encode("utf-8"))
+                # Close both the file wrapper and the socket so that the
+                # kernel sends FIN immediately (makefile() dup()s the fd,
+                # so both handles must be closed to release the connection).
+                f.close()
+                conn.close()
+                if connection_count[0] == 2:
+                    break
+            srv.close()
+
+        t = threading.Thread(target=server_thread, daemon=True)
+        t.start()
+        server_ready.wait(timeout=2.0)
+
+        client = BridgeClient(host="127.0.0.1", port=free_port, connect_timeout=1.0, auto_reconnect=True)
+        client.connect()
+        r1 = client.request("ping", timeout=1.0)
+        assert r1 == {"hit": 1}
+        # The reader detects EOF, reconnect kicks in. We don't need a sleep —
+        # `_connected.wait` inside request() blocks until the reader has
+        # re-established the connection.
+        r2 = client.request("ping", timeout=3.0)
+        assert r2 == {"hit": 2}
+        client.close()
