@@ -29,6 +29,7 @@ __all__ = [
     "tokenize",
     "match_keywords",
     "extract_bpm",
+    "extract_key",
 ]
 
 
@@ -38,6 +39,17 @@ _TOKEN_SPLIT = re.compile(r'[_\-\.\s/\\]+')          # any separator run
 _HAS_SEPARATOR = re.compile(r'[_\-\s/\\]')           # presence check (dots excluded: may be extension)
 
 _BPM_REGEX = re.compile(r'(?<!\d)(\d{2,3})\s*bpm(?!\w)', re.IGNORECASE)
+
+# Matches: <key><quality>  where:
+#   key     = [A-G] optionally followed by # or b
+#   quality = min, minor, m, maj, major (case-insensitive)
+# Surrounded by explicit musical separators (start-of-string, space, _, -, .)
+# rather than \b — because regex \b doesn't fire between letters and
+# underscores (both are word chars), so 'F#min_140' would fail with \b.
+_KEY_REGEX = re.compile(
+    r'(?:^|[\s_\-\.])([A-G])(#|b)?[\s_\-]*(min|minor|m|maj|major)(?=[\s_\-\.]|$)',
+    re.IGNORECASE
+)
 
 
 def tokenize(text: str) -> list[str]:
@@ -73,6 +85,25 @@ def extract_bpm(text: str, min_bpm: int = 40, max_bpm: int = 220) -> int | None:
     if bpm < min_bpm or bpm > max_bpm:
         return None
     return bpm
+
+
+def extract_key(text: str) -> str | None:
+    """Extract musical key from a filename, e.g. 'F#min', 'Cmaj'.
+
+    Conservative: requires both letter AND a quality suffix (min/maj/m).
+    Returns canonical form: '<letter><#|b|>{min|maj}'.
+    """
+    m = _KEY_REGEX.search(text)
+    if not m:
+        return None
+    letter = m.group(1).upper()
+    accidental = m.group(2) or ""
+    quality_raw = m.group(3).lower()
+    if quality_raw in ("min", "minor", "m"):
+        quality = "min"
+    else:
+        quality = "maj"
+    return f"{letter}{accidental}{quality}"
 
 
 def match_keywords(tokens: list[str], dictionary: dict[str, list[str]]) -> list[str]:

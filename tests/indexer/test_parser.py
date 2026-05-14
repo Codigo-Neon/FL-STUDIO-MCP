@@ -100,3 +100,36 @@ class TestExtractBpm:
     def test_ignores_year_like_numbers(self):
         # "2024" in filename is not a BPM
         assert extract_bpm("Sample_2024.wav") is None
+
+
+from indexer.parser import extract_key
+
+
+class TestExtractKey:
+    def test_canonical_minor(self):
+        assert extract_key("Bass_F#min_140.wav") == "F#min"
+
+    def test_canonical_major(self):
+        assert extract_key("Lead_Cmaj.wav") == "Cmaj"
+
+    def test_short_minor_form(self):
+        assert extract_key("Bass_Fm.wav") == "Fmin"  # 'm' suffix → 'min'
+
+    def test_with_minor_word(self):
+        assert extract_key("Lead C minor.wav") == "Cmin"
+
+    def test_with_major_word(self):
+        assert extract_key("Lead D# Major.wav") == "D#maj"
+
+    def test_flat_key(self):
+        assert extract_key("Bass_Bb_min.wav") == "Bbmin"
+
+    def test_rejects_plain_letter_without_quality(self):
+        # "C" alone could be anything — too ambiguous
+        assert extract_key("Kick_C_01.wav") is None
+
+    def test_no_key_returns_none(self):
+        assert extract_key("Kick_Punchy.wav") is None
+
+    def test_in_key_phrase(self):
+        assert extract_key("Bass_in_F#_min.wav") == "F#min"
