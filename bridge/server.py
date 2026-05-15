@@ -113,6 +113,37 @@ class BridgeServer:
                 break
             self._handle_client(conn)
 
+    def drain_once(self, registry, max_per_call: int = 16) -> int:
+        """Process up to `max_per_call` pending requests, dispatching each
+        through `registry` and sending the response.
+
+        Returns the number of requests processed. Designed to be called
+        repeatedly from FL Studio's OnIdle() callback. Non-blocking — if
+        the queue is empty it returns 0 immediately.
+        """
+        from queue import Empty
+        from bridge.protocol import make_response_ok, make_response_error
+        from bridge.handlers import HandlerError
+
+        processed = 0
+        for _ in range(max_per_call):
+            try:
+                request = self.pending_requests.get_nowait()
+            except Empty:
+                break
+            request_id = request.get("id", "")
+            method = request.get("method", "")
+            params = request.get("params") or {}
+            try:
+                result = registry.dispatch(method, params)
+                self.send_message(make_response_ok(request_id, result))
+            except HandlerError as exc:
+                self.send_message(make_response_error(request_id, str(exc)))
+            except Exception as exc:
+                self.send_message(make_response_error(request_id, f"internal: {exc}"))
+            processed += 1
+        return processed
+
     def _handle_client(self, conn: socket.socket) -> None:
         conn.settimeout(None)
         stream = conn.makefile("rwb", buffering=0)
