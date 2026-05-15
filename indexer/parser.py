@@ -164,7 +164,7 @@ def parse_folder_context(folder_path: str) -> dict:
     Each folder segment is tokenized independently and the union of matches
     is returned.
     """
-    parts = re.split(r'[/\\]+', folder_path)
+    parts = [p for p in re.split(r'[/\\]+', folder_path) if p]
     all_tokens: list[str] = []
     for part in parts:
         all_tokens.extend(tokenize(part))
@@ -192,7 +192,11 @@ def parse_path(full_path: str, packs_root: str) -> dict:
     when filename doesn't identify one.
     """
     p = Path(full_path)
-    relative = str(p.parent.relative_to(packs_root)) if str(p.parent).startswith(str(packs_root)) else str(p.parent)
+    packs = Path(packs_root)
+    try:
+        relative = str(p.parent.relative_to(packs))
+    except ValueError:
+        relative = str(p.parent)
 
     file_data = parse_filename(p.name)
     folder_data = parse_folder_context(relative)

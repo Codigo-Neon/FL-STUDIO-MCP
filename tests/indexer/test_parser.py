@@ -228,3 +228,11 @@ class TestParsePath:
         result = parse_path("/packs/Phonk/Kick_Trap.wav", "/packs")
         assert "phonk" in result["genres"]
         assert "trap" in result["genres"]
+
+    def test_path_outside_packs_root_does_not_crash(self):
+        # /packs and /packs_extra share a string prefix but the second is NOT
+        # inside the first. The old startswith logic would raise ValueError.
+        result = parse_path("/packs_extra/Kicks/01.wav", "/packs")
+        # Should not raise. The relative folder is just the absolute parent.
+        assert "relative_folder" in result
+        assert result["sample_type"] == "kick"
