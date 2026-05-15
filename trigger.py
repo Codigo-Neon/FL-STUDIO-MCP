@@ -83,11 +83,27 @@ from knowledge.learned.user_learning import (
     analyze_midi_file, format_learned_context,
 )
 from knowledge.midi_transport import create_transport
+from bridge import BridgeClient, BridgeError, DEFAULT_PORT as BRIDGE_DEFAULT_PORT
 
 # Initialize FastMCP server
 mcp = FastMCP("flstudio")
 
 _transport = create_transport()
+
+# Bridge client to FL Studio script. Lazily connected on first use because
+# trigger.py may start before FL Studio is running.
+_bridge_client: BridgeClient | None = None
+
+
+def _get_bridge() -> BridgeClient:
+    """Return a connected BridgeClient, opening it on first call."""
+    global _bridge_client
+    if _bridge_client is None or not _bridge_client.is_connected():
+        client = BridgeClient(auto_reconnect=True)
+        client.connect()
+        _bridge_client = client
+    return _bridge_client
+
 
 def send_raw_midi(hex_string: str) -> None:
     """Send raw MIDI bytes to the active transport (Linux raw device or Windows rtmidi port)."""
@@ -1833,6 +1849,42 @@ def mastering_checklist(genre: str = "boom_bap") -> str:
 4. Errores comunes a evitar
 
 Paso a paso, desde el pre-master hasta el archivo final."""
+
+
+@mcp.tool()
+def ping_fl() -> dict:
+    """Send a ping to the FL Studio script and return its response.
+
+    Use this to verify the bridge is alive and FL Studio's script is loaded.
+    Returns {"pong": True} on success, or raises if FL is unreachable.
+    """
+    try:
+        client = _get_bridge()
+        return client.request("ping", timeout=2.0)
+    except BridgeError as exc:
+        return {"error": str(exc)}
+
+
+@mcp.tool()
+def get_fl_state() -> dict:
+    """Query the live state of the FL Studio project via the bridge.
+
+    Returns a dict with:
+        bpm: current project tempo
+        current_pattern: index of the focused pattern
+        pattern_count: total patterns in the project
+        channels: list of {index, name} for the channel rack
+        mixer_tracks: list of {index, name} for the mixer
+
+    Requires the bridge server to be running inside FL Studio. If unreachable,
+    returns {"error": "..."} rather than raising — the LLM should treat this
+    as 'FL not currently controllable'.
+    """
+    try:
+        client = _get_bridge()
+        return client.request("get_fl_state", timeout=5.0)
+    except BridgeError as exc:
+        return {"error": str(exc)}
 
 
 if __name__ == "__main__":
