@@ -31,6 +31,8 @@ __all__ = [
     "extract_bpm",
     "extract_key",
     "parse_filename",
+    "parse_folder_context",
+    "parse_path",
 ]
 
 
@@ -153,6 +155,65 @@ def parse_filename(filename: str) -> dict:
         "is_oneshot": is_oneshot,
         "raw_tags": raw_tags,
     }
+
+
+def parse_folder_context(folder_path: str) -> dict:
+    """Parse a folder path (relative to packs root, or absolute) into the
+    same kind of tags as parse_filename but with no key/BPM-from-folder bias.
+
+    Each folder segment is tokenized independently and the union of matches
+    is returned.
+    """
+    parts = re.split(r'[/\\]+', folder_path)
+    all_tokens: list[str] = []
+    for part in parts:
+        all_tokens.extend(tokenize(part))
+
+    sample_types = match_keywords(all_tokens, SAMPLE_TYPE_KEYWORDS)
+    if "hat_closed" in sample_types and "hat" in sample_types:
+        sample_types.remove("hat")
+    if "hat_open" in sample_types and "hat" in sample_types:
+        sample_types.remove("hat")
+
+    return {
+        "sample_type": sample_types[0] if sample_types else None,
+        "subtype": (match_keywords(all_tokens, SUBTYPE_KEYWORDS) or [None])[0],
+        "genres": match_keywords(all_tokens, GENRE_KEYWORDS),
+        "moods": match_keywords(all_tokens, MOOD_KEYWORDS),
+        "bpm": extract_bpm(folder_path),
+    }
+
+
+def parse_path(full_path: str, packs_root: str) -> dict:
+    """High-level: parse filename + use folder context as fallback.
+
+    Filename data takes precedence (more specific). Folder genres/moods are
+    MERGED (union) with filename results. Folder sample_type is only used
+    when filename doesn't identify one.
+    """
+    p = Path(full_path)
+    relative = str(p.parent.relative_to(packs_root)) if str(p.parent).startswith(str(packs_root)) else str(p.parent)
+
+    file_data = parse_filename(p.name)
+    folder_data = parse_folder_context(relative)
+
+    if file_data["sample_type"] is None and folder_data["sample_type"] is not None:
+        file_data["sample_type"] = folder_data["sample_type"]
+    if file_data["subtype"] is None and folder_data["subtype"] is not None:
+        file_data["subtype"] = folder_data["subtype"]
+    if file_data["bpm"] is None and folder_data["bpm"] is not None:
+        file_data["bpm"] = folder_data["bpm"]
+
+    # Merge lists (union, preserve order)
+    for key in ("genres", "moods"):
+        seen = set(file_data[key])
+        for v in folder_data[key]:
+            if v not in seen:
+                file_data[key].append(v)
+                seen.add(v)
+
+    file_data["relative_folder"] = relative
+    return file_data
 
 
 def match_keywords(tokens: list[str], dictionary: dict[str, list[str]]) -> list[str]:

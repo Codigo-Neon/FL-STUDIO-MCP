@@ -1,5 +1,5 @@
 """Tests for the filename parser."""
-from indexer.parser import tokenize, match_keywords, extract_bpm, parse_filename
+from indexer.parser import tokenize, match_keywords, extract_bpm, parse_filename, parse_path
 
 
 class TestTokenize:
@@ -194,3 +194,37 @@ class TestParseFilename:
         # If filename mentions both "kick" and "snare", take the first
         result = parse_filename("Kick_NotASnare.wav")
         assert result["sample_type"] == "kick"
+
+
+class TestParsePath:
+    def test_filename_wins_when_specific(self):
+        # filename says "kick", folder says "snares" — filename wins
+        result = parse_path("/packs/Snares/Kick_01.wav", "/packs")
+        assert result["sample_type"] == "kick"
+
+    def test_folder_fallback_when_filename_vague(self):
+        result = parse_path("/packs/Kicks/01.wav", "/packs")
+        assert result["sample_type"] == "kick"
+
+    def test_genre_inherits_from_folder(self):
+        result = parse_path("/packs/Cymatics_Phonk_Vol3/kick.wav", "/packs")
+        assert result["sample_type"] == "kick"
+        assert "phonk" in result["genres"]
+
+    def test_bpm_inherits_from_folder(self):
+        result = parse_path("/packs/Trap_140bpm/kick_01.wav", "/packs")
+        assert result["bpm"] == 140
+
+    def test_relative_folder_set(self):
+        result = parse_path("/packs/Vendor/SubPack/kick.wav", "/packs")
+        assert result["relative_folder"] == "Vendor/SubPack"
+
+    def test_filename_bpm_wins_over_folder(self):
+        # Filename has 90bpm, folder has 140bpm → filename wins
+        result = parse_path("/packs/Trap_140bpm/Loop_90bpm.wav", "/packs")
+        assert result["bpm"] == 90
+
+    def test_filename_genres_merged_with_folder_genres(self):
+        result = parse_path("/packs/Phonk/Kick_Trap.wav", "/packs")
+        assert "phonk" in result["genres"]
+        assert "trap" in result["genres"]

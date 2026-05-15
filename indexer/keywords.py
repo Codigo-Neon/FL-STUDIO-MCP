@@ -19,8 +19,8 @@ __all__ = [
 
 SAMPLE_TYPE_KEYWORDS: dict[str, list[str]] = {
     # Drums
-    "kick": ["kick", "kik", "bd", "bassdrum", "bass_drum", "bombo", "tk"],
-    "snare": ["snare", "sd", "sn", "snr", "caja"],
+    "kick": ["kick", "kicks", "kik", "bd", "bassdrum", "bass_drum", "bombo", "tk"],
+    "snare": ["snare", "snares", "sd", "sn", "snr", "caja"],
     "clap": ["clap", "claps", "clp", "palmas"],
     "hat_closed": ["closedhat", "closed_hat", "ch", "hihat_closed", "hh_closed",
                    "hat closed"],
