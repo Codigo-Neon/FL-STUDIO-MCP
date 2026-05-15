@@ -4,13 +4,14 @@
 provides an adapter that calls FL's `transport`, `patterns`, `channels`,
 `mixer` modules. Tests inject a fake.
 """
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from bridge.handlers import HandlerRegistry
 
 __all__ = ["FLApi", "register_all"]
 
 
+@runtime_checkable
 class FLApi(Protocol):
     def get_bpm(self) -> float: ...
     def get_current_pattern(self) -> int: ...
