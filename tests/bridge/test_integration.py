@@ -60,7 +60,8 @@ class TestIntegration:
                 server.drain_once(registry)
                 time.sleep(0.01)
 
-        threading.Thread(target=drain_loop, daemon=True).start()
+        drain_thread = threading.Thread(target=drain_loop, daemon=True)
+        drain_thread.start()
 
         try:
             client = BridgeClient(port=free_port, connect_timeout=1.0)
@@ -70,6 +71,7 @@ class TestIntegration:
             client.close()
         finally:
             stop.set()
+            drain_thread.join(timeout=1.0)
             server.stop()
 
     def test_handler_exception_returns_error(self, free_port):
@@ -89,7 +91,8 @@ class TestIntegration:
                 server.drain_once(registry)
                 time.sleep(0.01)
 
-        threading.Thread(target=drain_loop, daemon=True).start()
+        drain_thread = threading.Thread(target=drain_loop, daemon=True)
+        drain_thread.start()
 
         try:
             client = BridgeClient(port=free_port, connect_timeout=1.0)
@@ -99,4 +102,5 @@ class TestIntegration:
             client.close()
         finally:
             stop.set()
+            drain_thread.join(timeout=1.0)
             server.stop()
