@@ -1,6 +1,7 @@
 from typing import Any
 from mcp.server.fastmcp import FastMCP
 import subprocess
+import threading
 import time
 
 # Knowledge base imports
@@ -83,7 +84,7 @@ from knowledge.learned.user_learning import (
     analyze_midi_file, format_learned_context,
 )
 from knowledge.midi_transport import create_transport
-from bridge import BridgeClient, BridgeError, DEFAULT_PORT as BRIDGE_DEFAULT_PORT
+from bridge import BridgeClient, BridgeError
 
 # Initialize FastMCP server
 mcp = FastMCP("flstudio")
@@ -91,18 +92,26 @@ mcp = FastMCP("flstudio")
 _transport = create_transport()
 
 # Bridge client to FL Studio script. Lazily connected on first use because
-# trigger.py may start before FL Studio is running.
+# trigger.py may start before FL Studio is running. The client handles its
+# own auto-reconnect internally, so we only create a new instance if there
+# is no existing one — we don't recreate while it's mid-reconnect.
 _bridge_client: BridgeClient | None = None
+_bridge_lock = threading.Lock()
 
 
 def _get_bridge() -> BridgeClient:
-    """Return a connected BridgeClient, opening it on first call."""
+    """Return the singleton BridgeClient, opening it on first call.
+
+    With auto_reconnect=True the client transparently re-establishes a
+    dropped connection; callers don't need to recreate it on disconnect.
+    """
     global _bridge_client
-    if _bridge_client is None or not _bridge_client.is_connected():
-        client = BridgeClient(auto_reconnect=True)
-        client.connect()
-        _bridge_client = client
-    return _bridge_client
+    with _bridge_lock:
+        if _bridge_client is None:
+            client = BridgeClient(auto_reconnect=True)
+            client.connect()
+            _bridge_client = client
+        return _bridge_client
 
 
 def send_raw_midi(hex_string: str) -> None:
