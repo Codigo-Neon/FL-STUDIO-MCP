@@ -30,6 +30,7 @@ __all__ = [
     "match_keywords",
     "extract_bpm",
     "extract_key",
+    "parse_filename",
 ]
 
 
@@ -104,6 +105,54 @@ def extract_key(text: str) -> str | None:
     else:
         quality = "maj"
     return f"{letter}{accidental}{quality}"
+
+
+def parse_filename(filename: str) -> dict:
+    """Parse a single filename into structured tags.
+
+    Does NOT consult folder context — for that, use parse_folder_context().
+    Folder context is layered ON TOP of filename results by parse_path().
+    """
+    tokens = tokenize(filename)
+    joined = " ".join(tokens)
+
+    sample_types = match_keywords(tokens, SAMPLE_TYPE_KEYWORDS)
+    # Specificity: hat_closed/hat_open should win over generic hat
+    if "hat_closed" in sample_types and "hat" in sample_types:
+        sample_types.remove("hat")
+    if "hat_open" in sample_types and "hat" in sample_types:
+        sample_types.remove("hat")
+    primary_type = sample_types[0] if sample_types else None
+
+    subtypes = match_keywords(tokens, SUBTYPE_KEYWORDS)
+    primary_subtype = subtypes[0] if subtypes else None
+
+    genres = match_keywords(tokens, GENRE_KEYWORDS)
+    moods = match_keywords(tokens, MOOD_KEYWORDS)
+
+    bpm = extract_bpm(filename)
+    key = extract_key(filename)
+
+    is_loop = any(kw in tokens for kw in LOOP_KEYWORDS) or "loop" in joined
+    is_oneshot = any(kw in tokens for kw in ONESHOT_KEYWORDS)
+
+    raw_tags = sample_types + subtypes + genres + moods
+    if is_loop:
+        raw_tags.append("loop")
+    if is_oneshot:
+        raw_tags.append("oneshot")
+
+    return {
+        "sample_type": primary_type,
+        "subtype": primary_subtype,
+        "genres": genres,
+        "moods": moods,
+        "bpm": bpm,
+        "key": key,
+        "is_loop": is_loop,
+        "is_oneshot": is_oneshot,
+        "raw_tags": raw_tags,
+    }
 
 
 def match_keywords(tokens: list[str], dictionary: dict[str, list[str]]) -> list[str]:
