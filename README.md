@@ -335,6 +335,12 @@ Delay de arranque despues de Note 76: **0.05s** (no mas).
 
 ---
 
+## Bridge Bidireccional
+
+El MCP puede consultar estado de FL Studio en tiempo real (BPM, patterns, mixer, channels) mediante un canal TCP bidireccional separado del MIDI. Documentación técnica en `CLAUDE.md`.
+
+---
+
 ## Instalacion
 
 ### Linux (Kali, Ubuntu, etc.)
