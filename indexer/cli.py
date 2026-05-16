@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 from indexer.manifest import build_manifest, search_samples, library_stats
+from indexer.paths import default_packs_root, default_manifest_path
 
 
 def _cmd_index(args) -> int:
@@ -53,16 +54,16 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_index = sub.add_parser("index", help="Walk packs root and build/update manifest")
-    p_index.add_argument("--packs", type=Path, required=True)
-    p_index.add_argument("--manifest", type=Path, required=True)
+    p_index.add_argument("--packs", type=Path, default=default_packs_root())
+    p_index.add_argument("--manifest", type=Path, default=default_manifest_path())
     p_index.set_defaults(func=_cmd_index)
 
     p_stats = sub.add_parser("stats", help="Print library statistics")
-    p_stats.add_argument("--manifest", type=Path, required=True)
+    p_stats.add_argument("--manifest", type=Path, default=default_manifest_path())
     p_stats.set_defaults(func=_cmd_stats)
 
     p_search = sub.add_parser("search", help="Search the manifest")
-    p_search.add_argument("--manifest", type=Path, required=True)
+    p_search.add_argument("--manifest", type=Path, default=default_manifest_path())
     p_search.add_argument("--type", help="Sample type (kick, snare, hat_closed, ...)")
     p_search.add_argument("--subtype", help="808, sub, growl, ...")
     p_search.add_argument("--genre", help="trap, boom_bap, phonk, ...")
