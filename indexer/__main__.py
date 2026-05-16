@@ -1,4 +1,5 @@
-from indexer.cli import main
 import sys
+
+from indexer.cli import main
 
 sys.exit(main())

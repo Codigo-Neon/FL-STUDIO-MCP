@@ -70,8 +70,9 @@ def main(argv: list[str] | None = None) -> int:
     p_search.add_argument("--key", help="e.g. F#min, Cmaj")
     p_search.add_argument("--bpm", type=int)
     p_search.add_argument("--bpm-tolerance", type=int, default=5)
-    p_search.add_argument("--loops-only", action="store_true")
-    p_search.add_argument("--oneshots-only", action="store_true")
+    loop_group = p_search.add_mutually_exclusive_group()
+    loop_group.add_argument("--loops-only", action="store_true")
+    loop_group.add_argument("--oneshots-only", action="store_true")
     p_search.add_argument("--limit", type=int, default=20)
     p_search.set_defaults(func=_cmd_search)
 

@@ -28,11 +28,12 @@ class TestCliIndex:
     def test_stats_subcommand_runs(self, tmp_path):
         packs = _make_packs(tmp_path)
         manifest = tmp_path / "manifest.parquet"
-        subprocess.run(
+        setup = subprocess.run(
             [sys.executable, "-m", "indexer", "index",
              "--packs", str(packs), "--manifest", str(manifest)],
-            check=True,
+            capture_output=True, text=True,
         )
+        assert setup.returncode == 0, f"index setup failed:\n{setup.stderr}"
 
         result = subprocess.run(
             [sys.executable, "-m", "indexer", "stats",
@@ -47,11 +48,12 @@ class TestCliSearch:
     def test_search_filters_by_type(self, tmp_path):
         packs = _make_packs(tmp_path)
         manifest = tmp_path / "manifest.parquet"
-        subprocess.run(
+        setup = subprocess.run(
             [sys.executable, "-m", "indexer", "index",
              "--packs", str(packs), "--manifest", str(manifest)],
-            check=True,
+            capture_output=True, text=True,
         )
+        assert setup.returncode == 0, f"index setup failed:\n{setup.stderr}"
 
         result = subprocess.run(
             [sys.executable, "-m", "indexer", "search",
@@ -62,3 +64,23 @@ class TestCliSearch:
         assert result.returncode == 0
         assert "Kick_Trap_01.wav" in result.stdout
         assert "Kick_BoomBap_01.wav" not in result.stdout
+
+    def test_loops_and_oneshots_mutually_exclusive(self, tmp_path):
+        packs = _make_packs(tmp_path)
+        manifest = tmp_path / "manifest.parquet"
+        setup = subprocess.run(
+            [sys.executable, "-m", "indexer", "index",
+             "--packs", str(packs), "--manifest", str(manifest)],
+            capture_output=True, text=True,
+        )
+        assert setup.returncode == 0, setup.stderr
+
+        result = subprocess.run(
+            [sys.executable, "-m", "indexer", "search",
+             "--manifest", str(manifest),
+             "--loops-only", "--oneshots-only"],
+            capture_output=True, text=True,
+        )
+        # argparse exits with code 2 on argument errors
+        assert result.returncode != 0
+        assert "not allowed with" in result.stderr.lower() or "argument" in result.stderr.lower()
