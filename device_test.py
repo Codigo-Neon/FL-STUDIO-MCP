@@ -13,6 +13,21 @@ import device
 import time
 import sys
 
+# Bridge bidireccional con el MCP (Linux).
+# Los módulos de `bridge` viven junto a este archivo en la carpeta de scripts
+# de FL Studio. El installer copia bridge/{__init__,protocol,server,handlers,fl_handlers,fl_adapter}.py.
+try:
+    from bridge import BridgeServer, HandlerRegistry
+    from bridge.fl_handlers import register_all
+    from bridge.fl_adapter import LiveFLAdapter
+    _BRIDGE_AVAILABLE = True
+except ImportError as _bridge_err:
+    print(f"[FL_MCP] Bridge no disponible: {_bridge_err}")
+    _BRIDGE_AVAILABLE = False
+
+_bridge_server = None
+_bridge_registry = None
+
 # Global variables
 running = True
 command_history = []
@@ -70,13 +85,33 @@ def midi_notes_to_int(midi_notes):
 
 def OnInit():
     """Called when the script is loaded by FL Studio"""
+    global _bridge_server, _bridge_registry
     print("FL Studio MCP Beat Builder initialized")
     print("Esperando comandos MIDI desde MCP...")
-    
+
+    if _BRIDGE_AVAILABLE:
+        try:
+            _bridge_registry = HandlerRegistry()
+            register_all(_bridge_registry, LiveFLAdapter())
+            _bridge_server = BridgeServer()
+            _bridge_server.start()
+            print("[FL_MCP] Bridge server escuchando en localhost:8765")
+        except Exception as exc:
+            print(f"[FL_MCP] Falló el arranque del bridge: {exc}")
+            _bridge_server = None
+            _bridge_registry = None
+
     return
 
 def OnDeInit():
     """Called when the script is unloaded by FL Studio"""
+    global _bridge_server
+    if _bridge_server is not None:
+        try:
+            _bridge_server.stop()
+        except Exception as exc:
+            print(f"[FL_MCP] Error al parar bridge: {exc}")
+        _bridge_server = None
     global running
     running = False  # Signal the terminal thread to exit
     print("FL Studio Terminal Beat Builder deinitialized")
@@ -971,6 +1006,18 @@ def change_tempo_from_notes(note_array):
     change_tempo(bpm_value)
     
     return bpm_value
+
+def OnIdle():
+    """Called periodically by FL Studio. We use it to drain the bridge queue
+    on the main thread, which is the only place FL Studio's API is safe to
+    call from."""
+    if _bridge_server is not None and _bridge_registry is not None:
+        try:
+            _bridge_server.drain_once(_bridge_registry, max_per_call=8)
+        except Exception as exc:
+            print(f"[FL_MCP] OnIdle drain error: {exc}")
+    return
+
 
 # Start the terminal interface when loaded in FL Studio
 # No need to call this explicitly as OnInit will be called by FL Studio

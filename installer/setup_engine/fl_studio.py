@@ -50,3 +50,35 @@ def install_device_script(
     )
 
     return target_script
+
+
+def install_bridge_package(
+    source_root: Path,
+    fl_studio_settings_dir: Path,
+    device_name: str,
+) -> Path:
+    """Copy the `bridge/` package next to the installed device_test.py so the
+    FL-side script can `from bridge import ...`.
+
+    `source_root` must be the staging/build directory that contains a
+    `bridge/` subdirectory. Raises FileNotFoundError if it's missing.
+    Returns the path to the installed bridge directory.
+    """
+    bridge_src = source_root / "bridge"
+    if not bridge_src.exists():
+        raise FileNotFoundError(f"bridge package not found at source: {bridge_src}")
+
+    hardware = find_hardware_dir(fl_studio_settings_dir)
+    device_dir = hardware / device_name
+    device_dir.mkdir(parents=True, exist_ok=True)
+
+    bridge_dst = device_dir / "bridge"
+    if bridge_dst.exists():
+        shutil.rmtree(bridge_dst)
+    shutil.copytree(
+        bridge_src,
+        bridge_dst,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+
+    return bridge_dst

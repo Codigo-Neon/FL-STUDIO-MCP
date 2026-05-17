@@ -38,6 +38,47 @@ Comunicación unidireccional: Linux → FL Studio. No se puede leer estado de vu
 
 ---
 
+## Bridge Bidireccional (Linux ↔ FL Studio)
+
+Canal de retorno desde FL Studio hacia el MCP, complementario al canal MIDI (que sigue siendo unidireccional para envío de notas).
+
+**Transporte:** TCP plano sobre `localhost:8765` con framing newline-delimited JSON (JSONL). Stdlib only en ambos lados.
+
+**Tipos de mensaje:**
+
+| Tipo | Sentido | Propósito |
+|---|---|---|
+| `req` | Linux → FL | Query con `id`, `method`, `params` |
+| `res` | FL → Linux | Respuesta correlacionada por `id`, con `ok` + `result` o `error` |
+| `evt` | FL → Linux | Evento empujado sin request previo (cambio de BPM, pattern switch, etc.) |
+
+**Threading en FL Studio:**
+- `bridge/server.py` corre un thread worker que acepta UNA conexión y lee mensajes
+- Las requests entran a `pending_requests` (queue thread-safe)
+- `OnIdle()` de `device_test.py` llama `server.drain_once(registry)` que dispatchea contra `HandlerRegistry`
+- Los handlers se ejecutan en el thread principal de FL — única zona segura para tocar el API de FL Studio
+
+**Ubicación de archivos:**
+- Linux (este repo): `bridge/{__init__,protocol,client,server,handlers,fl_handlers,fl_adapter}.py`
+- FL Studio (instalado por el installer): copiado a `Documents/Image-Line/FL Studio/Settings/Hardware/FL_MCP/bridge/`
+
+**Métodos registrados (v1):**
+- `ping` — sanity check, devuelve `{"pong": True}`
+- `get_fl_state` — devuelve `{bpm, current_pattern, pattern_count, channels[], mixer_tracks[]}`
+
+**Tools MCP expuestas:**
+- `ping_fl()` — wraps `ping`
+- `get_fl_state()` — wraps `get_fl_state`
+
+**Cómo agregar un método nuevo:**
+1. Definir el método en `FLApi` Protocol (`bridge/fl_handlers.py`)
+2. Implementarlo en `LiveFLAdapter` (`bridge/fl_adapter.py`)
+3. Registrarlo en `register_all()` de `bridge/fl_handlers.py`
+4. Exponerlo como tool MCP en `trigger.py`
+5. Tests: agregar caso en `tests/bridge/test_fl_handlers.py` con `FakeFLApi`
+
+---
+
 ## Calibración de Timing para Grabación en Tiempo Real
 
 Cuando se envían notas via grabación real-time (Note 76 → notas → Note 77), el timing requiere calibración precisa.
