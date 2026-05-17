@@ -233,6 +233,56 @@ Tests: `pytest tests/wizard tests/tray tests/setup_engine tests/build_pipeline` 
 
 ---
 
+## Sample Indexer — Capa 1 (Filenames)
+
+Indexa la library de FL Studio (carpeta `Packs/`) por metadata extraída del filename + folder context. Sin análisis de audio. Indexing incremental: re-correr solo procesa archivos nuevos o modificados.
+
+### Ubicación de archivos
+
+```
+indexer/
+├── keywords.py     diccionarios de tipos/géneros/moods
+├── parser.py       tokenizer + extracción de BPM, key, tags
+├── walker.py       filesystem walker con filters
+├── fileinfo.py     hash de contenido + stat
+├── storage.py      schema parquet
+├── manifest.py     build_manifest, search_samples, library_stats
+├── paths.py        defaults por plataforma
+├── cli.py          interfaz de línea de comandos
+└── __main__.py     `python -m indexer ...`
+```
+
+### Paths por defecto
+
+| Variable | Default Linux |
+|---|---|
+| Packs root | `~/.flstudio_prefix/drive_c/Program Files/Image-Line/FL Studio 2024/Data/Patches/Packs` |
+| Manifest | `~/.fl_mcp/library_index/manifest.parquet` |
+
+Override con env vars `FL_MCP_PACKS_ROOT` y `FL_MCP_MANIFEST_PATH`.
+
+### CLI
+
+```bash
+python -m indexer index              # primera vez: ~1-2 min para 40k samples
+python -m indexer index               # subsecuentes: <10s si nada cambió
+python -m indexer stats               # imprime breakdown por tipo/género
+python -m indexer search --type kick --genre trap --bpm 140 --limit 5
+```
+
+### Tools MCP
+
+- `reindex_library(packs_root=None)` — corre el indexing
+- `search_samples_in_library(sample_type=, genre=, bpm=, ...)` — query
+- `list_sample_categories()` — devuelve qué valores válidos hay
+- `get_library_stats()` — total + breakdowns
+
+### Cómo extender el matching
+
+Agregar keywords nuevos en `indexer/keywords.py`. Cada diccionario es `{canonical_name: [aliases]}`. Re-indexar (`reindex_library`) para que los nuevos tags se apliquen a la library existente.
+
+---
+
 ## Preferencias del Proyecto
 
 - **Idioma**: Español (todo output y guías en español)

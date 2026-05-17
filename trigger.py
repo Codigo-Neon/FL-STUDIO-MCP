@@ -1,5 +1,6 @@
 from typing import Any
 from mcp.server.fastmcp import FastMCP
+from pathlib import Path
 import subprocess
 import threading
 import time
@@ -85,6 +86,11 @@ from knowledge.learned.user_learning import (
 )
 from knowledge.midi_transport import create_transport
 from bridge import BridgeClient, BridgeError
+from indexer.manifest import build_manifest, search_samples as _search_samples, library_stats
+from indexer.paths import default_packs_root, default_manifest_path
+from indexer.keywords import (
+    SAMPLE_TYPE_KEYWORDS, GENRE_KEYWORDS, MOOD_KEYWORDS, SUBTYPE_KEYWORDS,
+)
 
 # Initialize FastMCP server
 mcp = FastMCP("flstudio")
@@ -1894,6 +1900,116 @@ def get_fl_state() -> dict:
         return client.request("get_fl_state", timeout=5.0)
     except BridgeError as exc:
         return {"error": str(exc)}
+
+
+@mcp.tool()
+def search_samples_in_library(
+    sample_type: str | None = None,
+    subtype: str | None = None,
+    genre: str | None = None,
+    mood: str | None = None,
+    key: str | None = None,
+    bpm: int | None = None,
+    bpm_tolerance: int = 5,
+    loops_only: bool = False,
+    oneshots_only: bool = False,
+    limit: int = 20,
+) -> dict:
+    """Search the user's sample library by structured tags.
+
+    All filters AND together. Returns paths + metadata for up to `limit`
+    matches. The library must have been indexed first via `reindex_library`
+    (or the manifest exists at the default location).
+
+    Filter values must match the canonical category names. Use
+    `list_sample_categories` to see what's valid.
+    """
+    manifest = default_manifest_path()
+    if not manifest.exists():
+        return {"error": "library not indexed yet — call reindex_library first"}
+    results = _search_samples(
+        manifest,
+        sample_type=sample_type,
+        subtype=subtype,
+        genre=genre,
+        mood=mood,
+        key=key,
+        bpm=bpm,
+        bpm_tolerance=bpm_tolerance,
+        is_loop=loops_only or None,
+        is_oneshot=oneshots_only or None,
+        limit=limit,
+    )
+    return {
+        "count": len(results),
+        "results": [
+            {
+                "path": r["path"],
+                "filename": r["filename"],
+                "folder": r["relative_folder"],
+                "sample_type": r["sample_type"],
+                "subtype": r["subtype"],
+                "genres": r["genres"],
+                "moods": r["moods"],
+                "bpm": r["bpm"],
+                "key": r["key"],
+                "is_loop": r["is_loop"],
+                "is_oneshot": r["is_oneshot"],
+            }
+            for r in results
+        ],
+    }
+
+
+@mcp.tool()
+def list_sample_categories() -> dict:
+    """List the canonical category values accepted by `search_samples_in_library`.
+
+    Returns categories for: sample_type, subtype, genre, mood. Use these
+    exact strings when filtering.
+    """
+    return {
+        "sample_types": list(SAMPLE_TYPE_KEYWORDS.keys()),
+        "subtypes": list(SUBTYPE_KEYWORDS.keys()),
+        "genres": list(GENRE_KEYWORDS.keys()),
+        "moods": list(MOOD_KEYWORDS.keys()),
+    }
+
+
+@mcp.tool()
+def get_library_stats() -> dict:
+    """Return aggregate statistics about the indexed sample library:
+    total samples, breakdown by sample type, breakdown by genre, count of
+    samples with detected BPM, count with detected key, count of untyped
+    samples.
+
+    Use this to gauge whether the library is well-indexed before relying
+    on `search_samples_in_library`.
+    """
+    manifest = default_manifest_path()
+    if not manifest.exists():
+        return {"error": "library not indexed yet — call reindex_library first"}
+    return library_stats(manifest)
+
+
+@mcp.tool()
+def reindex_library(packs_root: str | None = None) -> dict:
+    """Walk the sample library and update the manifest incrementally.
+
+    On first run this indexes the entire library (1-2 minutes for ~40k
+    samples on filename-only Capa 1 indexing). Subsequent runs are
+    near-instant if nothing has changed.
+
+    If `packs_root` is None the default location is used.
+
+    Returns counts: {added, updated, unchanged, removed, total}.
+    """
+    root = Path(packs_root) if packs_root else default_packs_root()
+    manifest = default_manifest_path()
+    if not root.exists():
+        return {"error": f"packs root does not exist: {root}"}
+    stats = build_manifest(root, manifest)
+    return stats
 
 
 if __name__ == "__main__":

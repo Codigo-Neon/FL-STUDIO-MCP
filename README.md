@@ -10,6 +10,8 @@ Servidor MCP (Model Context Protocol) que conecta cualquier cliente MCP — **Cl
 
 Funciona en **Linux** (Kali, Ubuntu, etc.) con FL Studio corriendo en **Wine**, y en **Windows** con FL Studio nativo.
 
+- **Sample indexer inteligente** — busca en tu library de FL Studio por tipo/género/BPM/key/mood en milisegundos. Indexing automático con detección incremental de cambios.
+
 > Probado en producción con **Claude Desktop**, **Claude Code** y **OpenCode**. Cualquier cliente compatible con MCP (stdio) lo puede usar — ver [Configuracion del Cliente MCP](#configuracion-del-cliente-mcp) para los snippets de cada uno.
 
 ---
