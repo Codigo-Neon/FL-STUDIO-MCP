@@ -13,11 +13,12 @@ import device
 import time
 import sys
 
-# Bridge bidireccional con el MCP (Linux).
-# Los módulos de `bridge` viven junto a este archivo en la carpeta de scripts
-# de FL Studio. El installer copia bridge/{__init__,protocol,server,handlers,fl_handlers,fl_adapter}.py.
+# Bridge bidireccional con el MCP vía SysEx MIDI.
+# El script de FL Studio corre en un sub-interpreter sandboxeado que bloquea
+# socket/threading/subprocess. La única forma de comunicación bidireccional
+# es vía `device.midiOutSysex(bytes)` + el callback `OnSysEx(event)`.
 try:
-    from bridge import BridgeServer, HandlerRegistry
+    from bridge import SysExServer, HandlerRegistry
     from bridge.fl_handlers import register_all
     from bridge.fl_adapter import LiveFLAdapter
     _BRIDGE_AVAILABLE = True
@@ -93,9 +94,8 @@ def OnInit():
         try:
             _bridge_registry = HandlerRegistry()
             register_all(_bridge_registry, LiveFLAdapter())
-            _bridge_server = BridgeServer()
-            _bridge_server.start()
-            print("[FL_MCP] Bridge server escuchando en localhost:8765")
+            _bridge_server = SysExServer(device_module=device)
+            print("[FL_MCP] SysEx bridge server registered (waiting for OnSysEx)")
         except Exception as exc:
             print(f"[FL_MCP] Falló el arranque del bridge: {exc}")
             _bridge_server = None
@@ -105,13 +105,9 @@ def OnInit():
 
 def OnDeInit():
     """Called when the script is unloaded by FL Studio"""
-    global _bridge_server
-    if _bridge_server is not None:
-        try:
-            _bridge_server.stop()
-        except Exception as exc:
-            print(f"[FL_MCP] Error al parar bridge: {exc}")
-        _bridge_server = None
+    global _bridge_server, _bridge_registry
+    _bridge_server = None
+    _bridge_registry = None
     global running
     running = False  # Signal the terminal thread to exit
     print("FL Studio Terminal Beat Builder deinitialized")
@@ -123,7 +119,8 @@ def OnRefresh(flags):
     return
 
 def OnMidiIn(event):
-    """Called whenever the device sends a MIDI message to FL Studio"""
+    """Called whenever the device sends a MIDI message to FL Studio.
+    SysEx is handled by OnSysEx — we leave this as a no-op pass-through."""
     event.handled = False
 
 def change_tempo(bpm):
@@ -343,7 +340,12 @@ def OnMidiMsg(event, timestamp=0):
     - Melody: Note 0 (start) → count → 6 values per note → Note 127 (end)
     - Tempo:  Note 72 (start) → BPM bytes → Note 73 (end)
     - Mixer:  Note 74 (start) → command + params → Note 75 (end)
+    - SysEx:  F0 ... F7 (bridge bidireccional)
     """
+
+    # SysEx is handled by OnSysEx — skip it here.
+    if getattr(event, 'sysex', None):
+        return
 
     global receiving_mode, collecting_tempo_notes, tempo_note_array
     global collecting_mixer_data, mixer_data_array
@@ -1016,6 +1018,16 @@ def OnIdle():
             _bridge_server.drain_once(_bridge_registry, max_per_call=8)
         except Exception as exc:
             print(f"[FL_MCP] OnIdle drain error: {exc}")
+    return
+
+
+def OnSysEx(event):
+    """Called by FL Studio when a SysEx message arrives on this input."""
+    if _bridge_server is not None:
+        try:
+            _bridge_server.feed_packet(bytes(event.sysex))
+        except Exception as exc:
+            print(f"[FL_MCP] OnSysEx feed error: {exc}")
     return
 
 
