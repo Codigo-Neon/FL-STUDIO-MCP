@@ -38,11 +38,37 @@ Comunicación unidireccional: Linux → FL Studio. No se puede leer estado de vu
 
 ---
 
-## Bridge Bidireccional (Linux ↔ FL Studio)
+## Bridge Bidireccional (Linux ↔ FL Studio) — OPERATIVO vía SysEx
 
-Canal de retorno desde FL Studio hacia el MCP, complementario al canal MIDI (que sigue siendo unidireccional para envío de notas).
+Canal de retorno FL Studio → Linux, complementario al MIDI unidireccional para envío de notas. **Implementado con SysEx** sobre `/dev/snd/midiC0D0` (VirMIDI 0-0). Round-trip `ping_fl()` y `get_fl_state()` validados con FL Studio 2024 v24.2.2 + Wine.
 
-**Transporte:** TCP plano sobre `localhost:8765` con framing newline-delimited JSON (JSONL). Stdlib only en ambos lados.
+### Por qué SysEx y no TCP
+
+FL Studio 2024 ejecuta los MIDI controller scripts en un **Python sub-interpreter aislado** (PEP 684) con sandboxing agresivo. Bloqueado: `socket`, `threading.Thread(daemon=True)`, `subprocess`, file I/O via Wine `Z:\`. Comprobado experimentalmente (ver `bridge/CAPABILITY_TEST_RESULTS.md`). La única forma de sacar datos del sub-interpreter es `device.midiOutSysex()`, que sí está permitida.
+
+### Por qué raw write a `/dev/snd/midiC0D0` y no python-rtmidi
+
+`python-rtmidi` envía/recibe a través del ALSA Sequencer, que **pierde SysEx** cuando uno de los endpoints es Wine — observado empíricamente. La solución: `os.write()` y `os.read()` directos al raw MIDI device. Tanto el output (Linux → FL) como el input (FL → Linux) usan este path.
+
+### Arquitectura
+
+```
+Linux (trigger.py)
+  └─ SysExClient
+       ├─ os.write(/dev/snd/midiC0D0)        → FL
+       └─ thread daemon: os.read(...)         ← FL (slice F0..F7)
+
+FL Studio (device_Test Controller.py)
+  ├─ OnSysEx(event) → server.feed_packet()    (encola request)
+  ├─ OnIdle()       → server.drain_once()     (despacha en main thread)
+  └─ HandlerRegistry → device.midiOutSysex()  → Linux
+```
+
+**No usa threading dentro de FL** (sub-interpreter prohíbe daemon threads). El reassembler + dispatcher corre todo en main thread vía `OnIdle()`.
+
+### Protocolo SysEx
+
+Header: `F0 7D 00 01 <SEQ_HI> <SEQ_LO> <CHUNK_IDX> <CHUNK_CNT> <PAYLOAD> F7`. Manufacturer ID `0x7D` (private), magic `0x00 0x01`. Payload máx por chunk: 1015 bytes. Mensajes grandes se trocean y reensamblan por `seq`.
 
 **Tipos de mensaje:**
 
@@ -52,17 +78,15 @@ Canal de retorno desde FL Studio hacia el MCP, complementario al canal MIDI (que
 | `res` | FL → Linux | Respuesta correlacionada por `id`, con `ok` + `result` o `error` |
 | `evt` | FL → Linux | Evento empujado sin request previo (cambio de BPM, pattern switch, etc.) |
 
-**Threading en FL Studio:**
-- `bridge/server.py` corre un thread worker que acepta UNA conexión y lee mensajes
-- Las requests entran a `pending_requests` (queue thread-safe)
-- `OnIdle()` de `device_test.py` llama `server.drain_once(registry)` que dispatchea contra `HandlerRegistry`
-- Los handlers se ejecutan en el thread principal de FL — única zona segura para tocar el API de FL Studio
+### Ubicación de archivos
 
-**Ubicación de archivos:**
-- Linux (este repo): `bridge/{__init__,protocol,client,server,handlers,fl_handlers,fl_adapter}.py`
-- FL Studio (instalado por el installer): copiado a `Documents/Image-Line/FL Studio/Settings/Hardware/FL_MCP/bridge/`
+- Linux (este repo): `bridge/{__init__,sysex_protocol,sysex_client,sysex_server,handlers,fl_handlers,fl_adapter}.py`
+- FL Studio (instalado): `~/Documentos/Image-Line/FL Studio/Settings/Hardware/Test Controller/bridge/` (mismos archivos, sincronizados manualmente)
 
-**Métodos registrados (v1):**
+**Código TCP legacy** (`bridge/{client,server,protocol}.py`) permanece como referencia pero no se usa — `bridge/__init__.py` lo carga defensivamente para que `from bridge import ...` funcione en ambos lados.
+
+### Métodos registrados (v1)
+
 - `ping` — sanity check, devuelve `{"pong": True}`
 - `get_fl_state` — devuelve `{bpm, current_pattern, pattern_count, channels[], mixer_tracks[]}`
 

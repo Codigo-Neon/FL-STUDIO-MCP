@@ -85,7 +85,7 @@ from knowledge.learned.user_learning import (
     analyze_midi_file, format_learned_context,
 )
 from knowledge.midi_transport import create_transport
-from bridge import BridgeClient, BridgeError
+from bridge import SysExClient, SysExBridgeError
 from indexer.manifest import build_manifest, search_samples as _search_samples, library_stats
 from indexer.paths import default_packs_root, default_manifest_path
 from indexer.keywords import (
@@ -97,24 +97,24 @@ mcp = FastMCP("flstudio")
 
 _transport = create_transport()
 
-# Bridge client to FL Studio script. Lazily connected on first use because
-# trigger.py may start before FL Studio is running. The client handles its
-# own auto-reconnect internally, so we only create a new instance if there
-# is no existing one — we don't recreate while it's mid-reconnect.
-_bridge_client: BridgeClient | None = None
+# SysEx bridge client to FL Studio script. Lazily connected on first use
+# because trigger.py may start before FL Studio / the virtual MIDI ports
+# exist. We open the rtmidi ports on first request; on failure we leave
+# _bridge_client as None so the next request retries.
+_bridge_client: "SysExClient | None" = None
 _bridge_lock = threading.Lock()
 
 
-def _get_bridge() -> BridgeClient:
-    """Return the singleton BridgeClient, opening it on first call.
+def _get_bridge() -> "SysExClient":
+    """Return the singleton SysExClient, opening it on first call.
 
-    With auto_reconnect=True the client transparently re-establishes a
-    dropped connection; callers don't need to recreate it on disconnect.
+    Connects on first call; subsequent calls reuse the open ports.
+    If connect() fails the singleton stays None so the next call retries.
     """
     global _bridge_client
     with _bridge_lock:
         if _bridge_client is None:
-            client = BridgeClient(auto_reconnect=True)
+            client = SysExClient()
             client.connect()
             _bridge_client = client
         return _bridge_client
@@ -1876,7 +1876,7 @@ def ping_fl() -> dict:
     try:
         client = _get_bridge()
         return client.request("ping", timeout=2.0)
-    except BridgeError as exc:
+    except SysExBridgeError as exc:
         return {"error": str(exc)}
 
 
@@ -1898,7 +1898,7 @@ def get_fl_state() -> dict:
     try:
         client = _get_bridge()
         return client.request("get_fl_state", timeout=5.0)
-    except BridgeError as exc:
+    except SysExBridgeError as exc:
         return {"error": str(exc)}
 
 
