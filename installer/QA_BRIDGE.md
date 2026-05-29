@@ -51,6 +51,21 @@ Validación end-to-end que requiere FL Studio corriendo. Ejecutar después de cu
   netstat -ano | findstr 8765    # Windows
   ```
 
+## Test 6: Mastering Tools (mezcla/mastering)
+
+Pre-requisitos: FL Studio abierto, Test Controller cargado, un proyecto real con mixer poblado.
+
+- [ ] `analyze_mix_static()` en un proyecto vacío devuelve "Sin problemas detectados".
+- [ ] Cargar un proyecto con un track que tenga 5+ FX → `analyze_mix_static()` lo marca como `fx-heavy` por nombre.
+- [ ] Subir el master fader por encima de 0dB → `analyze_mix_static()` reporta `master-clipping-risk`.
+- [ ] `set_genre("phonk")` → `get_mastering_target()` devuelve `lufs -6`, `true_peak -0.3`.
+- [ ] `start_peak_monitoring()` → reproducir el drop 30s → `stop_peak_monitoring()` → `analyze_master()`:
+      los peaks L/R del master reportados coinciden visualmente con el master meter de FL (±1dB).
+- [ ] `analyze_master()` sin monitoring previo → guía para correr `start_peak_monitoring`.
+- [ ] `set_mastering_target(true_peak=-1.0)` y luego `analyze_master()` usa el override.
+- [ ] `get_track_peaks(<un track sonando>)` devuelve valores dB plausibles durante playback.
+- [ ] Verificar que `analyze_master()` siempre aclara que LUFS no está disponible vía FL Script API.
+
 ## Reporte
 
 Pegar acá los resultados de cada test, con timestamps y cualquier output relevante de la consola del script de FL.
