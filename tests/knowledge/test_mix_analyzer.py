@@ -61,3 +61,24 @@ class TestAnalyzeStatic:
     def test_missing_keys_use_defaults_no_crash(self):
         report = mix_analyzer.analyze_static({"tracks": [{"idx": 9}]})
         assert report["kind"] == "static"
+
+
+class TestAnalyzePeaks:
+    def test_flags_near_clip_track(self):
+        peaks = {"sample_count": 50, "tracks": [{"idx": 5, "L": -2.0, "R": -2.5}]}
+        report = mix_analyzer.analyze_peaks(peaks, {"true_peak": -1.0})
+        flagged = [t for t in report["tracks"] if "near-clip" in t["flags"]]
+        assert len(flagged) == 1 and flagged[0]["idx"] == 5
+
+    def test_peak_below_threshold_not_flagged(self):
+        peaks = {"sample_count": 50, "tracks": [{"idx": 5, "L": -6.0, "R": -6.0}]}
+        report = mix_analyzer.analyze_peaks(peaks, {"true_peak": -1.0})
+        assert report["tracks"] == []
+
+    def test_no_peak_data_sets_flag(self):
+        report = mix_analyzer.analyze_peaks({"sample_count": 0, "tracks": []}, {"true_peak": -1.0})
+        assert "no-peak-data" in report["global_flags"]
+
+    def test_kind_is_peaks(self):
+        report = mix_analyzer.analyze_peaks({"sample_count": 1, "tracks": []}, {"true_peak": -1.0})
+        assert report["kind"] == "peaks"

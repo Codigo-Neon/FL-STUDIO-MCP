@@ -52,3 +52,36 @@ def analyze_static(snapshot: dict) -> dict:
         "tracks": flagged_tracks,
         "global_flags": global_flags,
     }
+
+
+_NEAR_CLIP_DB = -3.0   # any channel peak above this is "near clipping"
+
+
+def analyze_peaks(peak_report: dict, target: dict) -> dict:
+    """Evaluate accumulated max-hold peaks. Returns a report dict."""
+    sample_count = peak_report.get("sample_count", 0)
+    tracks_in = peak_report.get("tracks", [])
+    flagged_tracks = []
+    global_flags = []
+
+    if sample_count == 0:
+        global_flags.append("no-peak-data")
+
+    for t in tracks_in:
+        idx = t.get("idx", -1)
+        if idx == 0:
+            continue  # master handled in score_master
+        L = t.get("L", -90.0)
+        R = t.get("R", -90.0)
+        flags = []
+        if max(L, R) > _NEAR_CLIP_DB:
+            flags.append("near-clip")
+        if flags:
+            flagged_tracks.append({"idx": idx, "L": L, "R": R, "flags": flags})
+
+    return {
+        "kind": "peaks",
+        "sample_count": sample_count,
+        "tracks": flagged_tracks,
+        "global_flags": global_flags,
+    }
