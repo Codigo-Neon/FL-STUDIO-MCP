@@ -66,11 +66,18 @@ class TestAnalyzeMaster:
         trigger.current_mastering_target = {"lufs": -6, "true_peak": -0.3,
                                             "headroom_db": 4, "dynamics": "tight"}
 
+    def _snapshot(self, *tracks):
+        return {"tracks": list(tracks)}
+
+    def _master(self, fx=None):
+        return {"idx": 0, "name": "Master", "vol": 0.85, "pan": 0.0,
+                "mute": False, "solo": False, "fx": fx or [], "sends": []}
+
     def test_master_report_uses_current_target(self, monkeypatch):
         fake = Mock()
         fake.request.side_effect = [
-            {"idx": 0, "name": "Master", "vol": 0.85, "pan": 0.0, "fx": ["Maximus"], "sends": []},
-            {"sample_count": 100, "tracks": [{"idx": 0, "L": -0.1, "R": -0.4}]},
+            self._snapshot(self._master(fx=["Maximus"])),          # get_mixer_snapshot
+            {"sample_count": 100, "tracks": [{"idx": 0, "L": -0.1, "R": -0.4}]},  # get_peak_report
         ]
         monkeypatch.setattr(trigger, "_get_bridge", lambda: fake)
         result = trigger.analyze_master()
@@ -81,12 +88,27 @@ class TestAnalyzeMaster:
     def test_no_peak_data_guidance(self, monkeypatch):
         fake = Mock()
         fake.request.side_effect = [
-            {"idx": 0, "name": "Master", "vol": 0.85, "fx": [], "sends": []},
+            self._snapshot(self._master()),
             {"sample_count": 0, "tracks": []},
         ]
         monkeypatch.setattr(trigger, "_get_bridge", lambda: fake)
         result = trigger.analyze_master()
         assert "start_peak_monitoring" in result
+
+    def test_near_clip_track_reported_by_name(self, monkeypatch):
+        kick = {"idx": 5, "name": "Kick", "vol": 0.9, "pan": 0.0,
+                "mute": False, "solo": False, "fx": [], "sends": [0]}
+        fake = Mock()
+        fake.request.side_effect = [
+            self._snapshot(self._master(), kick),
+            {"sample_count": 100, "tracks": [
+                {"idx": 0, "L": -1.0, "R": -1.0},
+                {"idx": 5, "L": -2.0, "R": -2.5},  # above -3dB → near-clip
+            ]},
+        ]
+        monkeypatch.setattr(trigger, "_get_bridge", lambda: fake)
+        result = trigger.analyze_master()
+        assert "Kick" in result
 
     def test_bridge_error_returns_message(self, monkeypatch):
         def boom():
