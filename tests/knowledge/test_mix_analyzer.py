@@ -82,3 +82,40 @@ class TestAnalyzePeaks:
     def test_kind_is_peaks(self):
         report = mix_analyzer.analyze_peaks({"sample_count": 1, "tracks": []}, {"true_peak": -1.0})
         assert report["kind"] == "peaks"
+
+
+class TestScoreMaster:
+    def _peaks(self, L, R, count=100):
+        return {"sample_count": count, "tracks": [{"idx": 0, "L": L, "R": R}]}
+
+    def test_flags_over_target_with_excess(self):
+        report = mix_analyzer.score_master(
+            {"idx": 0, "fx": ["Maximus"]}, self._peaks(-0.1, -0.4), {"true_peak": -0.3})
+        assert "over-target" in report["flags"]
+        assert report["L_excess_db"] == pytest.approx(0.2)
+        assert report["R_excess_db"] == pytest.approx(0.0)  # -0.4 is under -0.3
+
+    def test_within_target_no_over_flag(self):
+        report = mix_analyzer.score_master(
+            {"idx": 0, "fx": []}, self._peaks(-1.5, -1.6), {"true_peak": -1.0})
+        assert "over-target" not in report["flags"]
+
+    def test_flags_stereo_imbalance(self):
+        report = mix_analyzer.score_master(
+            {"idx": 0, "fx": []}, self._peaks(-1.0, -5.0), {"true_peak": -0.3})
+        assert "stereo-imbalance" in report["flags"]
+
+    def test_no_peak_data_when_count_zero(self):
+        report = mix_analyzer.score_master(
+            {"idx": 0, "fx": []}, {"sample_count": 0, "tracks": []}, {"true_peak": -1.0})
+        assert "no-peak-data" in report["flags"]
+
+    def test_kind_is_master(self):
+        report = mix_analyzer.score_master(
+            {"idx": 0, "fx": []}, self._peaks(-2.0, -2.0), {"true_peak": -1.0})
+        assert report["kind"] == "master"
+
+    def test_lufs_declared_unavailable(self):
+        report = mix_analyzer.score_master(
+            {"idx": 0, "fx": []}, self._peaks(-2.0, -2.0), {"true_peak": -1.0})
+        assert report["lufs"] == "not_available"

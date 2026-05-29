@@ -85,3 +85,48 @@ def analyze_peaks(peak_report: dict, target: dict) -> dict:
         "tracks": flagged_tracks,
         "global_flags": global_flags,
     }
+
+
+_STEREO_IMBALANCE_DB = 3.0
+
+
+def _find_track(tracks: list, idx: int) -> dict:
+    for t in tracks:
+        if t.get("idx") == idx:
+            return t
+    return {}
+
+
+def score_master(master_snap: dict, peaks: dict, target: dict) -> dict:
+    """Cross-reference master peaks against the mastering target."""
+    flags = []
+    sample_count = peaks.get("sample_count", 0)
+    master_peak = _find_track(peaks.get("tracks", []), 0)
+
+    tp_target = target.get("true_peak", -1.0)
+    L = master_peak.get("L", -90.0)
+    R = master_peak.get("R", -90.0)
+
+    report = {
+        "kind": "master",
+        "fx": master_snap.get("fx", []),
+        "true_peak_target": tp_target,
+        "master_L": L,
+        "master_R": R,
+        "L_excess_db": max(0.0, L - tp_target),
+        "R_excess_db": max(0.0, R - tp_target),
+        "lufs": "not_available",
+        "headroom_db": target.get("headroom_db"),
+        "flags": flags,
+    }
+
+    if sample_count == 0:
+        flags.append("no-peak-data")
+        return report
+
+    if report["L_excess_db"] > 0 or report["R_excess_db"] > 0:
+        flags.append("over-target")
+    if abs(L - R) > _STEREO_IMBALANCE_DB:
+        flags.append("stereo-imbalance")
+
+    return report
