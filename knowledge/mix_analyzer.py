@@ -130,3 +130,36 @@ def score_master(master_snap: dict, peaks: dict, target: dict) -> dict:
         flags.append("stereo-imbalance")
 
     return report
+
+
+def suggest_fixes(static_report: dict, master_report: dict, target: dict) -> list:
+    """Turn flags into concrete Spanish suggestions."""
+    fixes = []
+
+    for flag in static_report.get("global_flags", []):
+        if flag == "master-clipping-risk":
+            fixes.append("Master fader por encima de 0dB: bajalo a unity para evitar clipping de salida.")
+
+    for t in static_report.get("tracks", []):
+        name = t.get("name", f"Track {t.get('idx')}")
+        if "fx-heavy" in t.get("flags", []):
+            fixes.append(f"{name}: más de 4 FX cargados. Revisá la cadena y consolidá efectos redundantes.")
+        if "silent-active" in t.get("flags", []):
+            fixes.append(f"{name}: volumen en 0 pero sin mutear. Muteá o subí el fader.")
+
+    for t in static_report.get("tracks", []):
+        if "near-clip" in t.get("flags", []):
+            fixes.append(f"{t.get('name', t.get('idx'))}: peak por encima de -3dB, cerca de clip. Bajá ganancia.")
+
+    if "over-target" in master_report.get("flags", []):
+        lx = master_report.get("L_excess_db", 0.0)
+        rx = master_report.get("R_excess_db", 0.0)
+        excess = max(lx, rx)
+        fixes.append(
+            f"Master excede el true peak target por {excess:.1f}dB. "
+            f"Bajá el output del limiter {excess:.1f}dB o ajustá el ceiling a {master_report.get('true_peak_target')}dB."
+        )
+    if "stereo-imbalance" in master_report.get("flags", []):
+        fixes.append("Desbalance L/R en el master mayor a 3dB. Revisá paneos y mono compatibility.")
+
+    return fixes

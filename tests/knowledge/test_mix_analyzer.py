@@ -119,3 +119,21 @@ class TestScoreMaster:
         report = mix_analyzer.score_master(
             {"idx": 0, "fx": []}, self._peaks(-2.0, -2.0), {"true_peak": -1.0})
         assert report["lufs"] == "not_available"
+
+
+class TestSuggestFixes:
+    def test_over_target_suggests_lowering_limiter(self):
+        master = {"kind": "master", "flags": ["over-target"], "L_excess_db": 0.2,
+                  "R_excess_db": 0.0, "true_peak_target": -0.3}
+        fixes = mix_analyzer.suggest_fixes({"global_flags": [], "tracks": []}, master, {})
+        assert any("limiter" in f.lower() or "ceiling" in f.lower() for f in fixes)
+        assert any("0.2" in f for f in fixes)
+
+    def test_fx_heavy_suggests_review(self):
+        static = {"global_flags": [], "tracks": [{"idx": 5, "name": "Kick", "flags": ["fx-heavy"]}]}
+        fixes = mix_analyzer.suggest_fixes(static, {"flags": []}, {})
+        assert any("Kick" in f and ("FX" in f or "efecto" in f.lower()) for f in fixes)
+
+    def test_no_flags_returns_empty(self):
+        fixes = mix_analyzer.suggest_fixes({"global_flags": [], "tracks": []}, {"flags": []}, {})
+        assert fixes == []
