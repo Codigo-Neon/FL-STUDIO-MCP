@@ -1,5 +1,6 @@
 import importlib
 import pytest
+from unittest.mock import Mock
 
 trigger = importlib.import_module("trigger")
 
@@ -35,3 +36,26 @@ class TestGenreState:
         trigger.set_genre("trap")
         t = trigger.get_mastering_target()
         assert t["lufs"] == -7
+
+
+class TestAnalyzeMixStatic:
+    def test_static_report_built_from_bridge_snapshot(self, monkeypatch):
+        fake = Mock()
+        fake.request.return_value = {"tracks": [
+            {"idx": 0, "name": "Master", "vol": 1.25, "pan": 0.0, "mute": False,
+             "solo": False, "fx": [], "sends": []},
+            {"idx": 5, "name": "Kick", "vol": 0.8, "pan": 0.0, "mute": False,
+             "solo": False, "fx": ["EQ", "C", "EQ", "Sat", "Lim"], "sends": [0]},
+        ]}
+        monkeypatch.setattr(trigger, "_get_bridge", lambda: fake)
+        result = trigger.analyze_mix_static()
+        assert "Kick" in result
+        assert "master-clipping-risk" in result or "master fader" in result.lower()
+        fake.request.assert_called_with("get_mixer_snapshot", timeout=5.0)
+
+    def test_bridge_error_returns_message(self, monkeypatch):
+        def boom():
+            raise trigger.SysExBridgeError("no port")
+        monkeypatch.setattr(trigger, "_get_bridge", boom)
+        result = trigger.analyze_mix_static()
+        assert "Bridge desconectado" in result

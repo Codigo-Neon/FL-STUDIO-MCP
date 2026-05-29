@@ -1949,6 +1949,21 @@ def get_mastering_target() -> dict:
 
 
 @mcp.tool()
+def analyze_mix_static() -> str:
+    """Analyze the current mix without playback. Reads the mixer snapshot and
+    reports FX-heavy tracks, silent-active tracks, and master clipping risk."""
+    try:
+        client = _get_bridge()
+        snapshot = client.request("get_mixer_snapshot", timeout=5.0)
+    except SysExBridgeError as exc:
+        return f"Bridge desconectado: {exc}. Verificá que FL Studio esté abierto."
+
+    report = mix_analyzer.analyze_static(snapshot)
+    fixes = mix_analyzer.suggest_fixes(report, {"flags": []}, current_mastering_target)
+    return mix_analyzer.format_report_es(report, fixes=fixes)
+
+
+@mcp.tool()
 def search_samples_in_library(
     sample_type: str | None = None,
     subtype: str | None = None,
