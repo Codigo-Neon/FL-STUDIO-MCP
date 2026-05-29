@@ -1982,6 +1982,64 @@ def analyze_master() -> str:
 
 
 @mcp.tool()
+def start_peak_monitoring() -> str:
+    """Start sampling mixer peaks (max-hold) inside FL. Play the section you
+    want to measure, then call stop_peak_monitoring() and analyze_master()."""
+    try:
+        client = _get_bridge()
+        res = client.request("start_peak_monitoring", timeout=5.0)
+    except SysExBridgeError as exc:
+        return f"Bridge desconectado: {exc}. Verificá que FL Studio esté abierto."
+    if res.get("restarted"):
+        return "Monitor de peaks reiniciado (estaba activo). Reproducí lo que quieras medir."
+    return "Monitor de peaks activo. Reproducí lo que quieras medir."
+
+
+@mcp.tool()
+def stop_peak_monitoring() -> str:
+    """Stop the peak monitoring service. Accumulated max-hold peaks are kept
+    and readable via analyze_master() or get_peak_report()."""
+    try:
+        client = _get_bridge()
+        res = client.request("stop_peak_monitoring", timeout=5.0)
+    except SysExBridgeError as exc:
+        return f"Bridge desconectado: {exc}. Verificá que FL Studio esté abierto."
+    if not res.get("was_active"):
+        return "Monitor ya estaba detenido."
+    return "Monitor detenido. Peaks listos para analizar."
+
+
+@mcp.tool()
+def get_peak_report() -> dict:
+    """Return accumulated max-hold peaks since the last start_peak_monitoring."""
+    try:
+        client = _get_bridge()
+        return client.request("get_peak_report", timeout=5.0)
+    except SysExBridgeError as exc:
+        return {"error": str(exc)}
+
+
+@mcp.tool()
+def get_track_volume(track: int) -> dict:
+    """Return the current fader volume (0.0-1.0+) of a mixer track."""
+    try:
+        client = _get_bridge()
+        return client.request("get_track_volume", {"track": track}, timeout=5.0)
+    except SysExBridgeError as exc:
+        return {"error": str(exc)}
+
+
+@mcp.tool()
+def get_track_peaks(track: int) -> dict:
+    """Return the current L/R peaks (dB) of a mixer track."""
+    try:
+        client = _get_bridge()
+        return client.request("get_track_peaks", {"track": track}, timeout=5.0)
+    except SysExBridgeError as exc:
+        return {"error": str(exc)}
+
+
+@mcp.tool()
 def search_samples_in_library(
     sample_type: str | None = None,
     subtype: str | None = None,

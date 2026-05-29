@@ -93,3 +93,36 @@ class TestAnalyzeMaster:
             raise trigger.SysExBridgeError("no port")
         monkeypatch.setattr(trigger, "_get_bridge", boom)
         assert "Bridge desconectado" in trigger.analyze_master()
+
+
+class TestMonitoringTools:
+    def test_start_peak_monitoring(self, monkeypatch):
+        fake = Mock()
+        fake.request.return_value = {"active": True, "restarted": False}
+        monkeypatch.setattr(trigger, "_get_bridge", lambda: fake)
+        result = trigger.start_peak_monitoring()
+        assert "activo" in result.lower() or "monitor" in result.lower()
+        fake.request.assert_called_with("start_peak_monitoring", timeout=5.0)
+
+    def test_stop_peak_monitoring(self, monkeypatch):
+        fake = Mock()
+        fake.request.return_value = {"active": False, "was_active": True}
+        monkeypatch.setattr(trigger, "_get_bridge", lambda: fake)
+        result = trigger.stop_peak_monitoring()
+        assert "detenido" in result.lower() or "stop" in result.lower()
+
+    def test_get_peak_report_passthrough(self, monkeypatch):
+        fake = Mock()
+        fake.request.return_value = {"active": False, "sample_count": 100,
+                                     "tracks": [{"idx": 5, "L": -3.0, "R": -3.2}]}
+        monkeypatch.setattr(trigger, "_get_bridge", lambda: fake)
+        result = trigger.get_peak_report()
+        assert result["sample_count"] == 100
+
+    def test_get_track_peaks_granular(self, monkeypatch):
+        fake = Mock()
+        fake.request.return_value = {"track": 6, "L": -3.2, "R": -3.4}
+        monkeypatch.setattr(trigger, "_get_bridge", lambda: fake)
+        result = trigger.get_track_peaks(6)
+        assert result["L"] == -3.2
+        fake.request.assert_called_with("get_track_peaks", {"track": 6}, timeout=5.0)
