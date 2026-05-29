@@ -164,3 +164,9 @@ class TestFormatReportEs:
                   "flags": ["no-peak-data"]}
         text = mix_analyzer.format_report_es(master, fixes=[])
         assert "start_peak_monitoring" in text
+
+    def test_master_report_missing_peak_keys_no_crash(self):
+        master = {"kind": "master", "true_peak_target": -1.0,
+                  "lufs": "not_available", "flags": []}
+        text = mix_analyzer.format_report_es(master, fixes=[])
+        assert "LUFS" in text  # renders without raising

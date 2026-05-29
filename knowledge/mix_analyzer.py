@@ -185,8 +185,8 @@ def format_report_es(report: dict, fixes: list = None) -> str:
             lines.append("⚠ Sin datos de peak. Corré start_peak_monitoring(), reproducí el track, "
                          "stop_peak_monitoring() y volvé a analizar.")
         else:
-            lines.append(f"Master peak L: {report.get('master_L'):.1f}dB, "
-                         f"R: {report.get('master_R'):.1f}dB "
+            lines.append(f"Master peak L: {report.get('master_L', -90.0):.1f}dB, "
+                         f"R: {report.get('master_R', -90.0):.1f}dB "
                          f"(target true peak {report.get('true_peak_target')}dB).")
             for flag in report.get("flags", []):
                 lines.append(f"  ⚠ {flag}")
