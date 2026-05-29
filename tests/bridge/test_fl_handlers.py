@@ -136,3 +136,32 @@ class TestMixerSnapshot:
         assert ms["idx"] == 0
         assert ms["name"] == "Master"
         assert ms["fx"] == ["Maximus"]
+
+
+class TestPeakMonitoringHandlers:
+    def _reg(self, monitor=None):
+        from bridge.handlers import HandlerRegistry
+        reg = HandlerRegistry()
+        register_all(reg, FakeFLApi(), peak_monitor=monitor)
+        return reg
+
+    def test_start_stop_report_lifecycle(self):
+        from bridge.peak_monitor import PeakMonitor
+        api = FakeFLApi()
+        monitor = PeakMonitor(api)
+        reg = self._reg(monitor)
+
+        reg.dispatch("start_peak_monitoring", {})
+        assert monitor.active is True
+        monitor.sample()  # simulate OnIdle
+        reg.dispatch("stop_peak_monitoring", {})
+        assert monitor.active is False
+
+        report = reg.dispatch("get_peak_report", {})
+        assert report["sample_count"] == 1
+        assert any(t["idx"] == 5 for t in report["tracks"])
+
+    def test_handlers_error_when_no_monitor(self):
+        reg = self._reg(monitor=None)
+        result = reg.dispatch("get_peak_report", {})
+        assert "error" in result

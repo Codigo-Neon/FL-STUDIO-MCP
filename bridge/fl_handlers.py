@@ -51,8 +51,9 @@ def _is_empty_track(track: dict) -> bool:
     return is_default_name and track["vol"] == 0.0 and not track["fx"]
 
 
-def register_all(registry: HandlerRegistry, api: FLApi) -> None:
-    """Register every FL handler against the given registry."""
+def register_all(registry: HandlerRegistry, api: FLApi, peak_monitor=None) -> None:
+    """Register every FL handler. `peak_monitor` is an optional PeakMonitor
+    instance; peak handlers return an error if it is None."""
 
     @registry.method("ping")
     def _ping(params):
@@ -88,3 +89,25 @@ def register_all(registry: HandlerRegistry, api: FLApi) -> None:
         t = _build_track_dict(api, 0)
         return {"idx": 0, "name": t["name"], "vol": t["vol"],
                 "pan": t["pan"], "fx": t["fx"], "sends": t["sends"]}
+
+    @registry.method("start_peak_monitoring")
+    def _start_peak_monitoring(params):
+        if peak_monitor is None:
+            return {"error": "peak monitor not available"}
+        was_active = peak_monitor.active
+        peak_monitor.start()
+        return {"active": True, "restarted": was_active}
+
+    @registry.method("stop_peak_monitoring")
+    def _stop_peak_monitoring(params):
+        if peak_monitor is None:
+            return {"error": "peak monitor not available"}
+        was_active = peak_monitor.active
+        peak_monitor.stop()
+        return {"active": False, "was_active": was_active}
+
+    @registry.method("get_peak_report")
+    def _get_peak_report(params):
+        if peak_monitor is None:
+            return {"error": "peak monitor not available"}
+        return peak_monitor.report()
