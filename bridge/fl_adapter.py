@@ -73,20 +73,14 @@ class LiveFLAdapter:
         R = self._mixer.getTrackPeaks(index, 1)
         return (_amp_to_db(L), _amp_to_db(R))
 
-    def get_effect_count(self, track: int) -> int:
-        # FL mixer tracks have 10 effect slots; count the non-empty ones.
-        count = 0
+    def get_effect_names(self, track: int) -> list:
+        # FL mixer tracks have 10 effect slots; collect names of non-empty ones.
+        import plugins
+        names = []
         for slot in range(10):
             if self._mixer.getTrackPluginId(track, slot) != -1:
-                count += 1
-        return count
-
-    def get_effect_name(self, track: int, slot: int) -> str:
-        plugin_id = self._mixer.getTrackPluginId(track, slot)
-        if plugin_id == -1:
-            return ""
-        import plugins
-        return plugins.getPluginName(track, slot)
+                names.append(plugins.getPluginName(track, slot))
+        return names
 
     def get_track_route_sends(self, index: int) -> list:
         sends = []

@@ -47,10 +47,7 @@ class FakeFLApi:
     def get_track_mute(self, idx): return self.mutes.get(idx, False)
     def get_track_solo(self, idx): return self.solos.get(idx, False)
     def get_track_peaks(self, idx): return self.peaks.get(idx, (-90.0, -90.0))
-    def get_effect_count(self, track): return len(self.fx.get(track, []))
-    def get_effect_name(self, track, slot):
-        fx = self.fx.get(track, [])
-        return fx[slot] if slot < len(fx) else ""
+    def get_effect_names(self, track): return list(self.fx.get(track, []))
     def get_track_route_sends(self, idx): return self.sends.get(idx, [])
 
 
@@ -136,6 +133,16 @@ class TestMixerSnapshot:
         assert ms["idx"] == 0
         assert ms["name"] == "Master"
         assert ms["fx"] == ["Maximus"]
+
+    def test_snapshot_fx_list_from_get_effect_names(self):
+        api = FakeFLApi()
+        api.fx[5] = ["EQ", "Comp", "Limiter"]
+        from bridge.handlers import HandlerRegistry
+        reg = HandlerRegistry()
+        register_all(reg, api)
+        snap = reg.dispatch("get_mixer_snapshot", {})
+        kick = next(t for t in snap["tracks"] if t["idx"] == 5)
+        assert kick["fx"] == ["EQ", "Comp", "Limiter"]
 
 
 class TestPeakMonitoringHandlers:
