@@ -2047,6 +2047,16 @@ def get_track_peaks(track: int) -> dict:
 
 
 @mcp.tool()
+def get_track_pan(track: int) -> dict:
+    """Return the current pan (-1.0..1.0) of a mixer track."""
+    try:
+        client = _get_bridge()
+        return client.request("get_track_pan", {"track": track}, timeout=5.0)
+    except SysExBridgeError as exc:
+        return {"error": str(exc)}
+
+
+@mcp.tool()
 def search_samples_in_library(
     sample_type: str | None = None,
     subtype: str | None = None,

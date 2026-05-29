@@ -148,3 +148,11 @@ class TestMonitoringTools:
         result = trigger.get_track_peaks(6)
         assert result["L"] == -3.2
         fake.request.assert_called_with("get_track_peaks", {"track": 6}, timeout=5.0)
+
+    def test_get_track_pan_granular(self, monkeypatch):
+        fake = Mock()
+        fake.request.return_value = {"track": 3, "pan": -0.25}
+        monkeypatch.setattr(trigger, "_get_bridge", lambda: fake)
+        result = trigger.get_track_pan(3)
+        assert result["pan"] == -0.25
+        fake.request.assert_called_with("get_track_pan", {"track": 3}, timeout=5.0)
