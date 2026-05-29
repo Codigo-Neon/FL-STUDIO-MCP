@@ -85,6 +85,7 @@ from knowledge.learned.user_learning import (
     analyze_midi_file, format_learned_context,
 )
 from knowledge.midi_transport import create_transport
+from knowledge import mix_analyzer
 from bridge import SysExClient, SysExBridgeError
 from indexer.manifest import build_manifest, search_samples as _search_samples, library_stats
 from indexer.paths import default_packs_root, default_manifest_path
@@ -127,6 +128,10 @@ def send_raw_midi(hex_string: str) -> None:
 
 # Global BPM state - tracks the current project tempo
 current_bpm: float = 90.0  # Default BPM (boom bap standard)
+
+# Global genre + mastering target state (see mix_analyzer.GENRE_TARGETS)
+current_genre: str = "neutral"
+current_mastering_target: dict = dict(mix_analyzer.GENRE_TARGETS["neutral"])
 
 
 # ============================================================================
@@ -1900,6 +1905,47 @@ def get_fl_state() -> dict:
         return client.request("get_fl_state", timeout=5.0)
     except SysExBridgeError as exc:
         return {"error": str(exc)}
+
+
+@mcp.tool()
+def set_genre(genre: str) -> str:
+    """Set the project genre, configuring default mastering targets.
+
+    Valid genres: boom_bap, trap, phonk, neutral.
+    """
+    global current_genre, current_mastering_target
+    if genre not in mix_analyzer.GENRE_TARGETS:
+        valid = ", ".join(mix_analyzer.GENRE_TARGETS.keys())
+        return f"Género '{genre}' no soportado. Disponibles: {valid}."
+    current_genre = genre
+    current_mastering_target = mix_analyzer.get_genre_target(genre)
+    t = current_mastering_target
+    return (f"Género {genre}: target {t['lufs']} LUFS, true peak {t['true_peak']}dB, "
+            f"headroom {t['headroom_db']}dB, dinámica {t['dynamics']}.")
+
+
+@mcp.tool()
+def set_mastering_target(lufs: float = None, true_peak: float = None,
+                         headroom_db: float = None) -> str:
+    """Override numeric mastering target values. Only changes the params passed."""
+    global current_mastering_target
+    if lufs is not None:
+        if not (-30 <= lufs <= 0):
+            return f"LUFS fuera de rango razonable [-30, 0]. Recibido: {lufs}."
+        current_mastering_target["lufs"] = lufs
+    if true_peak is not None:
+        if not (-12 <= true_peak <= 0):
+            return f"True peak fuera de rango razonable [-12, 0]. Recibido: {true_peak}."
+        current_mastering_target["true_peak"] = true_peak
+    if headroom_db is not None:
+        current_mastering_target["headroom_db"] = headroom_db
+    return f"Target actualizado: {current_mastering_target}"
+
+
+@mcp.tool()
+def get_mastering_target() -> dict:
+    """Return the active mastering target (genre default + any overrides)."""
+    return dict(current_mastering_target)
 
 
 @mcp.tool()
