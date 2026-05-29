@@ -165,3 +165,21 @@ class TestPeakMonitoringHandlers:
         reg = self._reg(monitor=None)
         result = reg.dispatch("get_peak_report", {})
         assert "error" in result
+
+
+class TestGranularHandlers:
+    def _reg(self):
+        from bridge.handlers import HandlerRegistry
+        reg = HandlerRegistry()
+        register_all(reg, FakeFLApi())
+        return reg
+
+    def test_get_track_volume(self):
+        assert self._reg().dispatch("get_track_volume", {"track": 5}) == {"track": 5, "volume": 0.8}
+
+    def test_get_track_pan(self):
+        assert self._reg().dispatch("get_track_pan", {"track": 5}) == {"track": 5, "pan": 0.0}
+
+    def test_get_track_peaks(self):
+        result = self._reg().dispatch("get_track_peaks", {"track": 5})
+        assert result == {"track": 5, "L": -3.0, "R": -3.2}

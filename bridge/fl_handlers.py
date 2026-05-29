@@ -111,3 +111,19 @@ def register_all(registry: HandlerRegistry, api: FLApi, peak_monitor=None) -> No
         if peak_monitor is None:
             return {"error": "peak monitor not available"}
         return peak_monitor.report()
+
+    @registry.method("get_track_volume")
+    def _get_track_volume(params):
+        idx = params["track"]
+        return {"track": idx, "volume": api.get_track_volume(idx)}
+
+    @registry.method("get_track_pan")
+    def _get_track_pan(params):
+        idx = params["track"]
+        return {"track": idx, "pan": api.get_track_pan(idx)}
+
+    @registry.method("get_track_peaks")
+    def _get_track_peaks(params):
+        idx = params["track"]
+        L, R = api.get_track_peaks(idx)
+        return {"track": idx, "L": L, "R": R}
