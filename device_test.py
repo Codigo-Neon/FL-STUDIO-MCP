@@ -21,6 +21,7 @@ try:
     from bridge import SysExServer, HandlerRegistry
     from bridge.fl_handlers import register_all
     from bridge.fl_adapter import LiveFLAdapter
+    from bridge.peak_monitor import PeakMonitor
     _BRIDGE_AVAILABLE = True
 except ImportError as _bridge_err:
     print(f"[FL_MCP] Bridge no disponible: {_bridge_err}")
@@ -28,6 +29,7 @@ except ImportError as _bridge_err:
 
 _bridge_server = None
 _bridge_registry = None
+_peak_monitor = None
 
 # Global variables
 running = True
@@ -86,28 +88,32 @@ def midi_notes_to_int(midi_notes):
 
 def OnInit():
     """Called when the script is loaded by FL Studio"""
-    global _bridge_server, _bridge_registry
+    global _bridge_server, _bridge_registry, _peak_monitor
     print("FL Studio MCP Beat Builder initialized")
     print("Esperando comandos MIDI desde MCP...")
 
     if _BRIDGE_AVAILABLE:
         try:
+            _adapter = LiveFLAdapter()
+            _peak_monitor = PeakMonitor(_adapter)
             _bridge_registry = HandlerRegistry()
-            register_all(_bridge_registry, LiveFLAdapter())
+            register_all(_bridge_registry, _adapter, peak_monitor=_peak_monitor)
             _bridge_server = SysExServer(device_module=device)
             print("[FL_MCP] SysEx bridge server registered (waiting for OnSysEx)")
         except Exception as exc:
             print(f"[FL_MCP] Falló el arranque del bridge: {exc}")
             _bridge_server = None
             _bridge_registry = None
+            _peak_monitor = None
 
     return
 
 def OnDeInit():
     """Called when the script is unloaded by FL Studio"""
-    global _bridge_server, _bridge_registry
+    global _bridge_server, _bridge_registry, _peak_monitor
     _bridge_server = None
     _bridge_registry = None
+    _peak_monitor = None
     global running
     running = False  # Signal the terminal thread to exit
     print("FL Studio Terminal Beat Builder deinitialized")
@@ -1010,9 +1016,13 @@ def change_tempo_from_notes(note_array):
     return bpm_value
 
 def OnIdle():
-    """Called periodically by FL Studio. We use it to drain the bridge queue
-    on the main thread, which is the only place FL Studio's API is safe to
-    call from."""
+    """Called periodically by FL Studio. Drains the bridge queue and samples
+    peaks (both must run on the main thread — FL's API is not thread-safe)."""
+    if _peak_monitor is not None:
+        try:
+            _peak_monitor.sample()
+        except Exception as exc:
+            print(f"[FL_MCP] OnIdle peak sample error: {exc}")
     if _bridge_server is not None and _bridge_registry is not None:
         try:
             _bridge_server.drain_once(_bridge_registry, max_per_call=8)
