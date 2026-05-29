@@ -163,3 +163,39 @@ def suggest_fixes(static_report: dict, master_report: dict, target: dict) -> lis
         fixes.append("Desbalance L/R en el master mayor a 3dB. Revisá paneos y mono compatibility.")
 
     return fixes
+
+
+def format_report_es(report: dict, fixes: list = None) -> str:
+    """Render a report dict as a Spanish text report."""
+    fixes = fixes or []
+    lines = []
+    kind = report.get("kind")
+
+    if kind == "static":
+        lines.append(f"Análisis estático — {report.get('track_count', 0)} tracks.")
+        for flag in report.get("global_flags", []):
+            lines.append(f"  ⚠ {flag}")
+        for t in report.get("tracks", []):
+            lines.append(f"  • {t.get('name')}: {', '.join(t.get('flags', []))}")
+        if not report.get("tracks") and not report.get("global_flags"):
+            lines.append("  Sin problemas detectados.")
+
+    elif kind == "master":
+        if "no-peak-data" in report.get("flags", []):
+            lines.append("⚠ Sin datos de peak. Corré start_peak_monitoring(), reproducí el track, "
+                         "stop_peak_monitoring() y volvé a analizar.")
+        else:
+            lines.append(f"Master peak L: {report.get('master_L'):.1f}dB, "
+                         f"R: {report.get('master_R'):.1f}dB "
+                         f"(target true peak {report.get('true_peak_target')}dB).")
+            for flag in report.get("flags", []):
+                lines.append(f"  ⚠ {flag}")
+        lines.append("LUFS: no disponible vía FL Script API — medición de true peak con max-hold.")
+
+    if fixes:
+        lines.append("")
+        lines.append("Sugerencias:")
+        for f in fixes:
+            lines.append(f"  → {f}")
+
+    return "\n".join(lines)

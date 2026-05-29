@@ -137,3 +137,30 @@ class TestSuggestFixes:
     def test_no_flags_returns_empty(self):
         fixes = mix_analyzer.suggest_fixes({"global_flags": [], "tracks": []}, {"flags": []}, {})
         assert fixes == []
+
+
+class TestFormatReportEs:
+    def test_static_report_mentions_track_count_and_flags(self):
+        static = {"kind": "static", "track_count": 23,
+                  "tracks": [{"idx": 5, "name": "Kick", "flags": ["fx-heavy"]}],
+                  "global_flags": ["master-clipping-risk"]}
+        text = mix_analyzer.format_report_es(static, fixes=["Bajá el master fader."])
+        assert "23" in text
+        assert "Kick" in text
+        assert "Bajá el master fader." in text
+
+    def test_master_report_mentions_peaks_and_target(self):
+        master = {"kind": "master", "master_L": -0.1, "master_R": -0.4,
+                  "true_peak_target": -0.3, "lufs": "not_available",
+                  "flags": ["over-target"]}
+        text = mix_analyzer.format_report_es(master, fixes=[])
+        assert "-0.1" in text and "-0.4" in text
+        assert "-0.3" in text
+        assert "LUFS" in text  # must disclose LUFS unavailability
+
+    def test_no_peak_data_message(self):
+        master = {"kind": "master", "master_L": -90.0, "master_R": -90.0,
+                  "true_peak_target": -1.0, "lufs": "not_available",
+                  "flags": ["no-peak-data"]}
+        text = mix_analyzer.format_report_es(master, fixes=[])
+        assert "start_peak_monitoring" in text
