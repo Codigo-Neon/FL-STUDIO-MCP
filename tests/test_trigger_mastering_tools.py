@@ -59,3 +59,37 @@ class TestAnalyzeMixStatic:
         monkeypatch.setattr(trigger, "_get_bridge", boom)
         result = trigger.analyze_mix_static()
         assert "Bridge desconectado" in result
+
+
+class TestAnalyzeMaster:
+    def setup_method(self):
+        trigger.current_mastering_target = {"lufs": -6, "true_peak": -0.3,
+                                            "headroom_db": 4, "dynamics": "tight"}
+
+    def test_master_report_uses_current_target(self, monkeypatch):
+        fake = Mock()
+        fake.request.side_effect = [
+            {"idx": 0, "name": "Master", "vol": 0.85, "pan": 0.0, "fx": ["Maximus"], "sends": []},
+            {"sample_count": 100, "tracks": [{"idx": 0, "L": -0.1, "R": -0.4}]},
+        ]
+        monkeypatch.setattr(trigger, "_get_bridge", lambda: fake)
+        result = trigger.analyze_master()
+        assert "-0.3" in result          # target true peak
+        assert "over-target" in result or "excede" in result.lower()
+        assert "LUFS" in result          # discloses LUFS unavailability
+
+    def test_no_peak_data_guidance(self, monkeypatch):
+        fake = Mock()
+        fake.request.side_effect = [
+            {"idx": 0, "name": "Master", "vol": 0.85, "fx": [], "sends": []},
+            {"sample_count": 0, "tracks": []},
+        ]
+        monkeypatch.setattr(trigger, "_get_bridge", lambda: fake)
+        result = trigger.analyze_master()
+        assert "start_peak_monitoring" in result
+
+    def test_bridge_error_returns_message(self, monkeypatch):
+        def boom():
+            raise trigger.SysExBridgeError("no port")
+        monkeypatch.setattr(trigger, "_get_bridge", boom)
+        assert "Bridge desconectado" in trigger.analyze_master()

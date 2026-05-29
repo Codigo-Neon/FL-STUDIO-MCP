@@ -1964,6 +1964,24 @@ def analyze_mix_static() -> str:
 
 
 @mcp.tool()
+def analyze_master() -> str:
+    """Analyze the master chain and peaks against the current mastering target.
+    For peak data, run start_peak_monitoring(), play the track, then
+    stop_peak_monitoring() before calling this."""
+    try:
+        client = _get_bridge()
+        master_snap = client.request("get_master_snapshot", timeout=5.0)
+        peaks = client.request("get_peak_report", timeout=5.0)
+    except SysExBridgeError as exc:
+        return f"Bridge desconectado: {exc}. Verificá que FL Studio esté abierto."
+
+    report = mix_analyzer.score_master(master_snap, peaks, current_mastering_target)
+    fixes = mix_analyzer.suggest_fixes({"global_flags": [], "tracks": []},
+                                       report, current_mastering_target)
+    return mix_analyzer.format_report_es(report, fixes=fixes)
+
+
+@mcp.tool()
 def search_samples_in_library(
     sample_type: str | None = None,
     subtype: str | None = None,
