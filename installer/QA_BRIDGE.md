@@ -66,6 +66,19 @@ Pre-requisitos: FL Studio abierto, Test Controller cargado, un proyecto real con
 - [ ] `get_track_peaks(<un track sonando>)` devuelve valores dB plausibles durante playback.
 - [ ] Verificar que `analyze_master()` siempre aclara que LUFS no está disponible vía FL Script API.
 
+## Test 7: Piano roll capture (lectura de notas)
+
+Pre-requisitos: FL Studio abierto, Test Controller **recargado** (re-seleccionar el script en MIDI Settings, o reabrir FL — FL tiene en memoria la versión vieja hasta recargar).
+
+**Verifica el riesgo dominante:** que `OnMidiOutMsg` reciba las notas del playback.
+
+- [ ] Abrir un pattern con notas conocidas en un canal (ej. un bajo de 4 notas en posiciones claras).
+- [ ] Seleccionar ese canal en el channel rack.
+- [ ] Desde Claude: `capture_pattern(bars=2)`.
+- [ ] **Verificar:** la salida lista las notas con nombre correcto (ej. `C2`, `G2`) y posiciones `bar:beat` coherentes con lo que se ve en el piano roll.
+- [ ] **Si devuelve "0 notas capturadas":** `OnMidiOutMsg` no recibe el playback del canal de instrumento. Aplicar fallback (rutear la salida MIDI del canal al puerto del script — "MIDI Out") o evaluar el Enfoque B (loopback). **Documentar el resultado abajo** — es la conclusión del milestone de factibilidad.
+- [ ] Si las posiciones están desfasadas en pattern mode: validar el modo de `transport.getSongPos()` (actualmente `2` = SONGLENGTH_ABSTICKS).
+
 ## Reporte
 
 Pegar acá los resultados de cada test, con timestamps y cualquier output relevante de la consola del script de FL.
