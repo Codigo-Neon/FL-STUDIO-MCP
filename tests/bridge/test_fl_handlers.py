@@ -20,6 +20,8 @@ class FakeFLApi:
         self.fx = {0: ["Maximus"], 5: ["EQ", "Comp"]}
         self.sends = {5: [0]}
         self.names = {0: "Master", 5: "Kick"}
+        self.transport_log = []
+        self.selected_channel_name = "Selected"
 
     def get_bpm(self) -> float:
         return self.bpm
@@ -49,6 +51,11 @@ class FakeFLApi:
     def get_track_peaks(self, idx): return self.peaks.get(idx, (-90.0, -90.0))
     def get_effect_names(self, track): return list(self.fx.get(track, []))
     def get_track_route_sends(self, idx): return self.sends.get(idx, [])
+
+    def start_playback(self): self.transport_log.append("start")
+    def stop_playback(self): self.transport_log.append("stop")
+    def seek_to_start(self): self.transport_log.append("seek")
+    def get_selected_channel_name(self): return self.selected_channel_name
 
 
 class TestPingHandler:
@@ -190,3 +197,13 @@ class TestGranularHandlers:
     def test_get_track_peaks(self):
         result = self._reg().dispatch("get_track_peaks", {"track": 5})
         assert result == {"track": 5, "L": -3.0, "R": -3.2}
+
+
+class TestTransportAndSelectedChannel:
+    def test_fake_api_supports_transport_and_selected_channel(self):
+        api = FakeFLApi()
+        api.start_playback()
+        api.stop_playback()
+        api.seek_to_start()
+        assert api.transport_log == ["start", "stop", "seek"]
+        assert api.get_selected_channel_name() == "Selected"

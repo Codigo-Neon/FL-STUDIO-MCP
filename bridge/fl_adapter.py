@@ -28,10 +28,12 @@ class LiveFLAdapter:
         import patterns
         import channels
         import general
+        import transport
         self._mixer = mixer
         self._patterns = patterns
         self._channels = channels
         self._general = general
+        self._transport = transport
 
     def get_bpm(self) -> float:
         # FL exposes BPM via mixer.getCurrentTempo() returning BPM * 1000.
@@ -88,3 +90,18 @@ class LiveFLAdapter:
             if dest != index and self._mixer.getRouteSendActive(index, dest):
                 sends.append(dest)
         return sends
+
+    def start_playback(self) -> None:
+        if not self._transport.isPlaying():
+            self._transport.start()
+
+    def stop_playback(self) -> None:
+        if self._transport.isPlaying():
+            self._transport.stop()
+
+    def seek_to_start(self) -> None:
+        # 2 = SONGLENGTH_ABSTICKS (same constant used elsewhere in device_test)
+        self._transport.setSongPos(0, 2)
+
+    def get_selected_channel_name(self) -> str:
+        return self._channels.getChannelName(self._channels.selectedChannel())
