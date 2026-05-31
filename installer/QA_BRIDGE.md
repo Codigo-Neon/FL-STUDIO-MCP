@@ -78,6 +78,7 @@ Pre-requisitos: FL Studio abierto, Test Controller **recargado** (re-seleccionar
 - [ ] **Verificar:** la salida lista las notas con nombre correcto (ej. `C2`, `G2`) y posiciones `bar:beat` coherentes con lo que se ve en el piano roll.
 - [ ] **Si devuelve "0 notas capturadas":** `OnMidiOutMsg` no recibe el playback del canal de instrumento. Aplicar fallback (rutear la salida MIDI del canal al puerto del script — "MIDI Out") o evaluar el Enfoque B (loopback). **Documentar el resultado abajo** — es la conclusión del milestone de factibilidad.
 - [ ] Si las posiciones están desfasadas en pattern mode: validar el modo de `transport.getSongPos()` (actualmente `2` = SONGLENGTH_ABSTICKS).
+- [ ] **Comportamiento multi-loop (clave):** `getSongPos(2)` devuelve ticks **absolutos de song**, no relativos al pattern. Si el pattern loopea dentro de la ventana de `bars`, las posiciones treparían (bar 3, 4...) en vez de wrappear, y aparecerían notas duplicadas. Probar con `bars` igual al largo real del pattern (una sola pasada) y verificar que NO hay duplicados ni posiciones fuera de rango. Si los hay → normalizar la posición contra el largo del pattern (`position_beats % pattern_beats`) en `OnMidiOutMsg`.
 
 ## Reporte
 
