@@ -22,6 +22,7 @@ try:
     from bridge.fl_handlers import register_all
     from bridge.fl_adapter import LiveFLAdapter
     from bridge.peak_monitor import PeakMonitor
+    from bridge.note_capture import NoteCapture
     _BRIDGE_AVAILABLE = True
 except ImportError as _bridge_err:
     print(f"[FL_MCP] Bridge no disponible: {_bridge_err}")
@@ -30,6 +31,7 @@ except ImportError as _bridge_err:
 _bridge_server = None
 _bridge_registry = None
 _peak_monitor = None
+_note_capture = None
 
 # Global variables
 running = True
@@ -88,7 +90,7 @@ def midi_notes_to_int(midi_notes):
 
 def OnInit():
     """Called when the script is loaded by FL Studio"""
-    global _bridge_server, _bridge_registry, _peak_monitor
+    global _bridge_server, _bridge_registry, _peak_monitor, _note_capture
     print("FL Studio MCP Beat Builder initialized")
     print("Esperando comandos MIDI desde MCP...")
 
@@ -96,8 +98,9 @@ def OnInit():
         try:
             _adapter = LiveFLAdapter()
             _peak_monitor = PeakMonitor(_adapter)
+            _note_capture = NoteCapture()
             _bridge_registry = HandlerRegistry()
-            register_all(_bridge_registry, _adapter, peak_monitor=_peak_monitor)
+            register_all(_bridge_registry, _adapter, peak_monitor=_peak_monitor, note_capture=_note_capture)
             _bridge_server = SysExServer(device_module=device)
             print("[FL_MCP] SysEx bridge server registered (waiting for OnSysEx)")
         except Exception as exc:
@@ -105,15 +108,17 @@ def OnInit():
             _bridge_server = None
             _bridge_registry = None
             _peak_monitor = None
+            _note_capture = None
 
     return
 
 def OnDeInit():
     """Called when the script is unloaded by FL Studio"""
-    global _bridge_server, _bridge_registry, _peak_monitor
+    global _bridge_server, _bridge_registry, _peak_monitor, _note_capture
     _bridge_server = None
     _bridge_registry = None
     _peak_monitor = None
+    _note_capture = None
     global running
     running = False  # Signal the terminal thread to exit
     print("FL Studio Terminal Beat Builder deinitialized")
@@ -1039,6 +1044,26 @@ def OnSysEx(event):
         except Exception as exc:
             print(f"[FL_MCP] OnSysEx feed error: {exc}")
     return
+
+
+def OnMidiOutMsg(event):
+    """FL sends MIDI to the controller during playback. While note capture is
+    armed, record note-on/off with their transport position (in beats) so Linux
+    can reconstruct the selected channel's notes. Read-only — never sets handled."""
+    if _note_capture is None or not _note_capture.armed:
+        return
+    try:
+        status = event.status & 0xF0
+        is_noteon = (status == 0x90 and event.data2 > 0)
+        is_noteoff = (status == 0x80) or (status == 0x90 and event.data2 == 0)
+        if not (is_noteon or is_noteoff):
+            return
+        ppq = general.getRecPPQ()
+        pos_ticks = transport.getSongPos(2)  # 2 = SONGLENGTH_ABSTICKS
+        pos_beats = (pos_ticks / ppq) if ppq else 0.0
+        _note_capture.feed(event.data1, event.data2, is_noteon, pos_beats)
+    except Exception as exc:
+        print(f"[FL_MCP] OnMidiOutMsg capture error: {exc}")
 
 
 # Start the terminal interface when loaded in FL Studio
