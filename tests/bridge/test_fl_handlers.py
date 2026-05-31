@@ -207,3 +207,49 @@ class TestTransportAndSelectedChannel:
         api.seek_to_start()
         assert api.transport_log == ["start", "stop", "seek"]
         assert api.get_selected_channel_name() == "Selected"
+
+
+class TestNoteCaptureHandlers:
+    def _reg(self, api, note_capture):
+        from bridge.handlers import HandlerRegistry
+        reg = HandlerRegistry()
+        register_all(reg, api, note_capture=note_capture)
+        return reg
+
+    def test_arm_arms_and_starts_playback(self):
+        from bridge.note_capture import NoteCapture
+        api, nc = FakeFLApi(), NoteCapture()
+        reg = self._reg(api, nc)
+        res = reg.dispatch("arm_note_capture", {})
+        assert res == {"armed": True}
+        assert nc.armed is True
+        assert api.transport_log == ["seek", "start"]
+
+    def test_disarm_disarms_and_stops_playback(self):
+        from bridge.note_capture import NoteCapture
+        api, nc = FakeFLApi(), NoteCapture()
+        nc.arm()
+        reg = self._reg(api, nc)
+        res = reg.dispatch("disarm_note_capture", {})
+        assert res == {"armed": False}
+        assert nc.armed is False
+        assert api.transport_log == ["stop"]
+
+    def test_get_captured_notes_returns_notes_and_channel(self):
+        from bridge.note_capture import NoteCapture
+        api, nc = FakeFLApi(), NoteCapture()
+        api.selected_channel_name = "Bass"
+        nc.arm()
+        nc.feed(40, 100, True, 0.0); nc.feed(40, 0, False, 1.0)
+        reg = self._reg(api, nc)
+        res = reg.dispatch("get_captured_notes", {})
+        assert res["channel_name"] == "Bass"
+        assert res["count"] == 1
+        assert res["notes"][0] == {"note": 40, "velocity": 100, "length": 1.0, "position": 0.0}
+
+    def test_handlers_error_when_capture_unavailable(self):
+        from bridge.handlers import HandlerRegistry
+        reg = HandlerRegistry()
+        register_all(reg, FakeFLApi())          # note_capture defaults to None
+        assert reg.dispatch("arm_note_capture", {}) == {"error": "note capture not available"}
+        assert reg.dispatch("get_captured_notes", {}) == {"error": "note capture not available"}

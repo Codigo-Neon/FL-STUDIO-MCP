@@ -55,9 +55,11 @@ def _is_empty_track(track: dict) -> bool:
     return is_default_name and track["vol"] == 0.0 and not track["fx"]
 
 
-def register_all(registry: HandlerRegistry, api: FLApi, peak_monitor=None) -> None:
+def register_all(registry: HandlerRegistry, api: FLApi, peak_monitor=None, note_capture=None) -> None:
     """Register every FL handler. `peak_monitor` is an optional PeakMonitor
-    instance; peak handlers return an error if it is None."""
+    instance; peak handlers return an error if it is None. `note_capture` is
+    an optional NoteCapture instance; its handlers return an error if it is
+    None."""
 
     @registry.method("ping")
     def _ping(params):
@@ -131,3 +133,31 @@ def register_all(registry: HandlerRegistry, api: FLApi, peak_monitor=None) -> No
         idx = params["track"]
         L, R = api.get_track_peaks(idx)
         return {"track": idx, "L": L, "R": R}
+
+    @registry.method("arm_note_capture")
+    def _arm_note_capture(params):
+        if note_capture is None:
+            return {"error": "note capture not available"}
+        note_capture.arm()
+        api.seek_to_start()
+        api.start_playback()
+        return {"armed": True}
+
+    @registry.method("disarm_note_capture")
+    def _disarm_note_capture(params):
+        if note_capture is None:
+            return {"error": "note capture not available"}
+        api.stop_playback()
+        note_capture.disarm()
+        return {"armed": False}
+
+    @registry.method("get_captured_notes")
+    def _get_captured_notes(params):
+        if note_capture is None:
+            return {"error": "note capture not available"}
+        notes = note_capture.notes()
+        return {
+            "notes": notes,
+            "count": len(notes),
+            "channel_name": api.get_selected_channel_name(),
+        }
