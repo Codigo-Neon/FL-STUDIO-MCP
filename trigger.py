@@ -2056,6 +2056,53 @@ def get_track_pan(track: int) -> dict:
         return {"error": str(exc)}
 
 
+def _format_captured_notes(result: dict) -> str:
+    """Render captured notes as a readable Spanish list for analysis."""
+    notes = result.get("notes", [])
+    channel = result.get("channel_name", "?")
+    if not notes:
+        return (
+            "0 notas capturadas en el canal seleccionado. Puede ser que el canal "
+            "no tenga notas en este pattern, o que FL no entregue las notas del "
+            "playback al script (el callback OnMidiOutMsg no disparó). "
+            "Ver el fallback de ruteo MIDI-Out en el spec de piano roll capture."
+        )
+    lines = [f"Canal: {channel} — {len(notes)} notas capturadas", ""]
+    for n in notes:
+        bar = int(n["position"] // 4) + 1
+        beat = n["position"] % 4 + 1
+        name = midi_to_note(n["note"])
+        lines.append(
+            f"  {name:>4} (n{n['note']:>3}) vel {n['velocity']:>3}  "
+            f"bar {bar}:{beat:.2f}  dur {n['length']:.2f} beats"
+        )
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def capture_pattern(bars: int = 2) -> str:
+    """Reproduce el pattern actual y captura las notas del CANAL SELECCIONADO en
+    el channel rack, devolviéndolas como lista legible (nombre, bar:beat, duración).
+
+    La FL Scripting API no permite leer notas de un pattern directamente; esto las
+    captura mientras suenan. Usar para que Claude 'vea' un pattern (acordes, bajo,
+    melodía) antes de comentarlo o corregirlo. `bars` = cuántos compases (4/4)
+    reproducir/capturar (default 2)."""
+    try:
+        client = _get_bridge()
+        client.request("arm_note_capture", timeout=5.0)
+    except SysExBridgeError as exc:
+        return f"Bridge desconectado: {exc}. Verificá que FL Studio esté abierto."
+    # Dejar sonar el pattern el tiempo correspondiente a `bars` compases de 4/4.
+    time.sleep(bars * 4 * (60.0 / current_bpm))
+    try:
+        client.request("disarm_note_capture", timeout=5.0)
+        result = client.request("get_captured_notes", timeout=5.0)
+    except SysExBridgeError as exc:
+        return f"Bridge desconectado durante la captura: {exc}."
+    return _format_captured_notes(result)
+
+
 @mcp.tool()
 def search_samples_in_library(
     sample_type: str | None = None,
