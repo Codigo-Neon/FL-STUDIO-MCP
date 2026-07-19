@@ -105,3 +105,9 @@ class LiveFLAdapter:
 
     def get_selected_channel_name(self) -> str:
         return self._channels.getChannelName(self._channels.selectedChannel())
+
+    def is_playing(self) -> bool:
+        return bool(self._transport.isPlaying())
+
+    def get_pattern_name(self, idx: int) -> str:
+        return self._patterns.getPatternName(idx)

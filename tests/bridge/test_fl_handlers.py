@@ -22,6 +22,8 @@ class FakeFLApi:
         self.names = {0: "Master", 5: "Kick"}
         self.transport_log = []
         self.selected_channel_name = "Selected"
+        self.playing = False
+        self.pattern_names = {0: "Pattern 1"}
 
     def get_bpm(self) -> float:
         return self.bpm
@@ -56,6 +58,8 @@ class FakeFLApi:
     def stop_playback(self): self.transport_log.append("stop")
     def seek_to_start(self): self.transport_log.append("seek")
     def get_selected_channel_name(self): return self.selected_channel_name
+    def is_playing(self): return self.playing
+    def get_pattern_name(self, idx): return self.pattern_names.get(idx, f"Pattern {idx + 1}")
 
 
 class TestPingHandler:
@@ -253,3 +257,12 @@ class TestNoteCaptureHandlers:
         register_all(reg, FakeFLApi())          # note_capture defaults to None
         assert reg.dispatch("arm_note_capture", {}) == {"error": "note capture not available"}
         assert reg.dispatch("get_captured_notes", {}) == {"error": "note capture not available"}
+
+
+class TestPlayingAndPatternName:
+    def test_fake_api_supports_is_playing_and_pattern_name(self):
+        api = FakeFLApi()
+        assert api.is_playing() is False
+        api.playing = True
+        assert api.is_playing() is True
+        assert api.get_pattern_name(0) == "Pattern 1"
