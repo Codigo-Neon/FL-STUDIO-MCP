@@ -65,6 +65,10 @@ class SysExServer:
         for packet in encode_dict(self._seq, msg):
             self._device.midiOutSysex(bytes(packet))
 
+    def send_event(self, name: str, data: dict) -> None:
+        """Push an unsolicited event to Linux (no prior request)."""
+        self.send_message({"type": "evt", "name": name, "data": data})
+
     def drain_once(self, registry: Any, max_per_call: int = 8) -> int:
         """Process up to `max_per_call` pending requests, dispatching each
         through `registry` and sending the response via SysEx.
