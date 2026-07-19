@@ -80,6 +80,17 @@ Pre-requisitos: FL Studio abierto, Test Controller **recargado** (re-seleccionar
 - [ ] Si las posiciones están desfasadas en pattern mode: validar el modo de `transport.getSongPos()` (actualmente `2` = SONGLENGTH_ABSTICKS).
 - [ ] **Comportamiento multi-loop (clave):** `getSongPos(2)` devuelve ticks **absolutos de song**, no relativos al pattern. Si el pattern loopea dentro de la ventana de `bars`, las posiciones treparían (bar 3, 4...) en vez de wrappear, y aparecerían notas duplicadas. Probar con `bars` igual al largo real del pattern (una sola pasada) y verificar que NO hay duplicados ni posiciones fuera de rango. Si los hay → normalizar la posición contra el largo del pattern (`position_beats % pattern_beats`) en `OnMidiOutMsg`.
 
+## Test 8 — Eventos asíncronos (evt)
+
+Pre-requisitos: FL Studio abierto, Test Controller recargado.
+
+- [ ] Con el bridge conectado (ej. tras un `ping_fl()` OK), cambiar el BPM del proyecto en FL.
+- [ ] `get_recent_events()` lista un evento `{"name": "bpm", "data": {"bpm": <nuevo>}}`.
+- [ ] `get_live_state()` devuelve `bpm` = el nuevo valor.
+- [ ] Switchear a otro pattern → aparece evento `pattern` con `{pattern, name}`; `get_live_state()` refleja `pattern`/`pattern_name`.
+- [ ] Dar play → evento `transport` `{playing: true}`; stop → `{playing: false}`; `get_live_state()["playing"]` coherente.
+- [ ] Verificar que NO hay flood: quedarse quieto sin tocar nada no genera eventos nuevos (el baseline no re-emite).
+
 ## Reporte
 
 Pegar acá los resultados de cada test, con timestamps y cualquier output relevante de la consola del script de FL.
