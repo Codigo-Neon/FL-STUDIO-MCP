@@ -23,6 +23,7 @@ try:
     from bridge.fl_adapter import LiveFLAdapter
     from bridge.peak_monitor import PeakMonitor
     from bridge.note_capture import NoteCapture
+    from bridge.state_watcher import StateWatcher
     _BRIDGE_AVAILABLE = True
 except ImportError as _bridge_err:
     print(f"[FL_MCP] Bridge no disponible: {_bridge_err}")
@@ -32,6 +33,7 @@ _bridge_server = None
 _bridge_registry = None
 _peak_monitor = None
 _note_capture = None
+_state_watcher = None
 
 # Global variables
 running = True
@@ -90,7 +92,7 @@ def midi_notes_to_int(midi_notes):
 
 def OnInit():
     """Called when the script is loaded by FL Studio"""
-    global _bridge_server, _bridge_registry, _peak_monitor, _note_capture
+    global _bridge_server, _bridge_registry, _peak_monitor, _note_capture, _state_watcher
     print("FL Studio MCP Beat Builder initialized")
     print("Esperando comandos MIDI desde MCP...")
 
@@ -99,6 +101,7 @@ def OnInit():
             _adapter = LiveFLAdapter()
             _peak_monitor = PeakMonitor(_adapter)
             _note_capture = NoteCapture()
+            _state_watcher = StateWatcher(_adapter)
             _bridge_registry = HandlerRegistry()
             register_all(_bridge_registry, _adapter, peak_monitor=_peak_monitor, note_capture=_note_capture)
             _bridge_server = SysExServer(device_module=device)
@@ -109,16 +112,18 @@ def OnInit():
             _bridge_registry = None
             _peak_monitor = None
             _note_capture = None
+            _state_watcher = None
 
     return
 
 def OnDeInit():
     """Called when the script is unloaded by FL Studio"""
-    global _bridge_server, _bridge_registry, _peak_monitor, _note_capture
+    global _bridge_server, _bridge_registry, _peak_monitor, _note_capture, _state_watcher
     _bridge_server = None
     _bridge_registry = None
     _peak_monitor = None
     _note_capture = None
+    _state_watcher = None
     global running
     running = False  # Signal the terminal thread to exit
     print("FL Studio Terminal Beat Builder deinitialized")
@@ -1033,6 +1038,12 @@ def OnIdle():
             _bridge_server.drain_once(_bridge_registry, max_per_call=8)
         except Exception as exc:
             print(f"[FL_MCP] OnIdle drain error: {exc}")
+    if _state_watcher is not None and _bridge_server is not None:
+        try:
+            for ev in _state_watcher.poll():
+                _bridge_server.send_event(ev["name"], ev["data"])
+        except Exception as exc:
+            print(f"[FL_MCP] OnIdle state watch error: {exc}")
     return
 
 
