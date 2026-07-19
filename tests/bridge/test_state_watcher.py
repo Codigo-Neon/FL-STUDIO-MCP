@@ -62,3 +62,11 @@ class TestStateWatcher:
         api.bpm = 120.0
         assert len(w.poll()) == 1
         assert w.poll() == []     # stable after the change
+
+    def test_bpm_jitter_below_precision_does_not_emit(self):
+        api = FakeStateApi()
+        api.bpm = 140.0
+        w = StateWatcher(api)
+        w.poll()                  # baseline at 140.0
+        api.bpm = 140.001         # sub-0.01 jitter (tempo automation)
+        assert w.poll() == []

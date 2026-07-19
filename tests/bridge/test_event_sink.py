@@ -53,3 +53,9 @@ class TestEventSink:
         s.record("bpm", {"bpm": 120})
         s.live_state()["bpm"] = 999
         assert s.live_state()["bpm"] == 120
+
+    def test_recent_with_nonpositive_limit_returns_empty(self):
+        s = EventSink()
+        s.record("bpm", {"bpm": 1})
+        assert s.recent(limit=0) == []
+        assert s.recent(limit=-3) == []

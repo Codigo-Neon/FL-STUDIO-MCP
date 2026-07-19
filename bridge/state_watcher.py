@@ -17,7 +17,10 @@ class StateWatcher:
         since the last poll. The first poll establishes a silent baseline
         (returns [] and records the current state)."""
         current = {
-            "bpm": self.api.get_bpm(),
+            # Round BPM before diffing: FL returns a float and tempo
+            # automation can jitter the low bits, which would otherwise
+            # emit a bpm event every OnIdle (flood).
+            "bpm": round(self.api.get_bpm(), 2),
             "pattern": self.api.get_current_pattern(),
             "playing": self.api.is_playing(),
         }

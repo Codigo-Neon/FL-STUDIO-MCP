@@ -29,6 +29,8 @@ class EventSink:
                 self._live["pattern_name"] = data.get("name")
 
     def recent(self, limit=20):
+        if limit <= 0:
+            return []
         with self._lock:
             events = list(self._events)
         return events[-limit:]
