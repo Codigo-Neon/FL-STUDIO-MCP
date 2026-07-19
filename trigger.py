@@ -87,6 +87,7 @@ from knowledge.learned.user_learning import (
 from knowledge.midi_transport import create_transport
 from knowledge import mix_analyzer
 from bridge import SysExClient, SysExBridgeError
+from bridge.event_sink import EventSink
 from indexer.manifest import build_manifest, search_samples as _search_samples, library_stats
 from indexer.paths import default_packs_root, default_manifest_path
 from indexer.keywords import (
@@ -104,6 +105,7 @@ _transport = create_transport()
 # _bridge_client as None so the next request retries.
 _bridge_client: "SysExClient | None" = None
 _bridge_lock = threading.Lock()
+_event_sink = EventSink()
 
 
 def _get_bridge() -> "SysExClient":
@@ -117,6 +119,7 @@ def _get_bridge() -> "SysExClient":
         if _bridge_client is None:
             client = SysExClient()
             client.connect()
+            client.on_event(_event_sink.record)
             _bridge_client = client
         return _bridge_client
 
@@ -2101,6 +2104,23 @@ def capture_pattern(bars: int = 2) -> str:
     except SysExBridgeError as exc:
         return f"Bridge desconectado durante la captura: {exc}."
     return _format_captured_notes(result)
+
+
+@mcp.tool()
+def get_recent_events(limit: int = 20) -> list:
+    """Devuelve los últimos eventos que FL empujó (BPM, switch de pattern,
+    play/stop) desde que se conectó el bridge. Cada evento: {seq, name, data}.
+    Útil para saber qué cambió mientras no estabas mirando."""
+    return _event_sink.recent(limit)
+
+
+@mcp.tool()
+def get_live_state() -> dict:
+    """Snapshot cacheado del estado de FL, actualizado por los eventos que FL
+    empuja: {bpm, playing, pattern, pattern_name}. Refleja cambios DESDE la
+    conexión del bridge (no el estado inicial — para eso usá get_fl_state).
+    Las claves aparecen recién cuando llega el primer evento de ese tipo."""
+    return _event_sink.live_state()
 
 
 @mcp.tool()
