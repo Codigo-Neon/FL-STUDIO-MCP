@@ -5,7 +5,7 @@
 ; calling iscc on this file.
 
 #define MyAppName "FL MCP Studio"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.2.0"
 #define MyAppPublisher "FL MCP"
 #define MyAppExeName "flmcp.bat"
 
@@ -40,6 +40,10 @@ Source: "build\staging\trigger.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "build\staging\device_test.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "build\staging\knowledge\*"; DestDir: "{app}\knowledge"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "build\staging\installer\*"; DestDir: "{app}\installer"; Flags: recursesubdirs createallsubdirs ignoreversion
+; bridge/ and indexer/ are imported at module level by trigger.py. The wizard
+; also copies bridge/ from {app} into FL Studio's Hardware dir.
+Source: "build\staging\bridge\*"; DestDir: "{app}\bridge"; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "build\staging\indexer\*"; DestDir: "{app}\indexer"; Flags: recursesubdirs createallsubdirs ignoreversion
 ; Launcher
 Source: "build\staging\flmcp.bat"; DestDir: "{app}"; Flags: ignoreversion
 

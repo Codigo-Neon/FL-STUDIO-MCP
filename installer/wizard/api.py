@@ -17,7 +17,7 @@ from installer.setup_engine.claude_config import (
     register_mcp_server,
     ConfigCorruptedError,
 )
-from installer.setup_engine.fl_studio import install_device_script
+from installer.setup_engine.fl_studio import install_bridge_package, install_device_script
 from installer.setup_engine.loopmidi import (
     create_port,
     download_loopmidi,
@@ -79,18 +79,26 @@ class JsApi:
             return _err(str(exc))
 
     def install_script(self) -> Dict[str, Any]:
-        """Copy the bundled `device_test.py` into FL Studio's Hardware folder.
+        """Copy the bundled `device_test.py` and `bridge/` into FL Studio's
+        Hardware folder.
 
-        The bundled script lives at `<install-root>/device_test.py` (placed there
-        by Inno Setup). We resolve it relative to this module's parent.
+        Both live at `<install-root>/` (placed there by Inno Setup). We resolve
+        the root relative to this module's parent. `bridge/` must land next to
+        the script: `device_test.py` does `from bridge import ...` at import
+        time, so without it FL Studio's script fails to load.
         """
         try:
             report = detect_environment()
             if report.fl_studio_settings_dir is None:
                 return _err("FL Studio no detectado. Abrí FL Studio al menos una vez antes.")
-            bundled = Path(__file__).resolve().parents[2] / "device_test.py"
+            install_root = Path(__file__).resolve().parents[2]
             install_device_script(
-                source_script=bundled,
+                source_script=install_root / "device_test.py",
+                fl_studio_settings_dir=report.fl_studio_settings_dir,
+                device_name="FL_MCP",
+            )
+            install_bridge_package(
+                source_root=install_root,
                 fl_studio_settings_dir=report.fl_studio_settings_dir,
                 device_name="FL_MCP",
             )

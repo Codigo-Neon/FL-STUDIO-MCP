@@ -113,6 +113,7 @@ class TestJsApiInstallScript:
     def test_calls_install_device_script_with_bundled_source(self, monkeypatch, tmp_path):
         fake_install = MagicMock()
         monkeypatch.setattr("installer.wizard.api.install_device_script", fake_install)
+        monkeypatch.setattr("installer.wizard.api.install_bridge_package", MagicMock())
         monkeypatch.setattr(
             "installer.wizard.api.detect_environment",
             MagicMock(return_value=MagicMock(fl_studio_settings_dir=tmp_path)),
@@ -125,6 +126,44 @@ class TestJsApiInstallScript:
         kwargs = fake_install.call_args.kwargs
         assert kwargs["fl_studio_settings_dir"] == tmp_path
         assert kwargs["device_name"] == "FL_MCP"
+
+    def test_also_installs_bridge_package_next_to_script(self, monkeypatch, tmp_path):
+        """device_test.py does `from bridge import ...` at import time, so the
+        wizard must copy bridge/ into the same Hardware dir as the script."""
+        fake_script = MagicMock()
+        fake_bridge = MagicMock()
+        monkeypatch.setattr("installer.wizard.api.install_device_script", fake_script)
+        monkeypatch.setattr("installer.wizard.api.install_bridge_package", fake_bridge)
+        monkeypatch.setattr(
+            "installer.wizard.api.detect_environment",
+            MagicMock(return_value=MagicMock(fl_studio_settings_dir=tmp_path)),
+        )
+
+        result = JsApi().install_script()
+
+        assert result["ok"] is True
+        fake_bridge.assert_called_once()
+        kwargs = fake_bridge.call_args.kwargs
+        assert kwargs["fl_studio_settings_dir"] == tmp_path
+        assert kwargs["device_name"] == "FL_MCP"
+        # Same install root the script came from, so both land together.
+        assert kwargs["source_root"] == fake_script.call_args.kwargs["source_script"].parent
+
+    def test_reports_error_when_bridge_package_missing(self, monkeypatch, tmp_path):
+        monkeypatch.setattr("installer.wizard.api.install_device_script", MagicMock())
+        monkeypatch.setattr(
+            "installer.wizard.api.install_bridge_package",
+            MagicMock(side_effect=FileNotFoundError("bridge package not found at source: X")),
+        )
+        monkeypatch.setattr(
+            "installer.wizard.api.detect_environment",
+            MagicMock(return_value=MagicMock(fl_studio_settings_dir=tmp_path)),
+        )
+
+        result = JsApi().install_script()
+
+        assert result["ok"] is False
+        assert "bridge" in result["error"]
 
     def test_returns_error_when_fl_studio_not_detected(self, monkeypatch):
         monkeypatch.setattr(

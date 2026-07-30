@@ -10,6 +10,15 @@ from installer.build.stage import (
 )
 
 
+def test_source_dirs_covers_every_package_trigger_imports():
+    """trigger.py imports bridge/ and indexer/ at module level. If they are not
+    staged, the shipped MCP server dies on startup with ImportError and the
+    wizard cannot copy bridge/ into FL Studio. Guard against silent regression.
+    """
+    for required in ("knowledge", "bridge", "indexer", "installer"):
+        assert required in SOURCE_DIRS, f"{required}/ must ship in the installer bundle"
+
+
 class TestCopySourceToStaging:
     def test_copies_top_level_source_files(self, tmp_path):
         repo_root = tmp_path / "repo"

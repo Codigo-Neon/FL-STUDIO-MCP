@@ -30,9 +30,15 @@ SOURCE_FILES = [
 
 # Directories that ship in the install. Excluded subdirs (__pycache__, tests)
 # are filtered by `_should_skip`.
+#
+# `bridge` and `indexer` are imported at module level by trigger.py, so omitting
+# them ships an installer whose MCP server dies on startup with ImportError.
+# `bridge` is also the source the wizard copies into FL Studio's Hardware dir.
 SOURCE_DIRS = [
     "knowledge",
     "installer",
+    "bridge",
+    "indexer",
 ]
 
 # Directory + file patterns that should never end up in the bundle
