@@ -6,13 +6,16 @@
 
 **by Franco Donati**
 
-Servidor MCP (Model Context Protocol) que conecta cualquier cliente MCP — **Claude Desktop, Claude Code, OpenCode, Cursor, Continue, Cline, Zed** — con FL Studio a traves de MIDI. Controla FL Studio desde una IA: genera beats, melodias, progresiones de acordes, lineas de bajo, configura el mixer, diseña sonidos en Serum 2, masteriza con Ozone 12, limpia audio con RX 11, y recibe guias de produccion profesional — todo con lenguaje natural.
+Servidor MCP (Model Context Protocol) que conecta cualquier cliente MCP — **Claude Desktop, Claude Code, OpenCode, Cursor, Continue, Cline, Zed** — con FL Studio. Controla FL Studio desde una IA: genera beats, melodias, progresiones de acordes, lineas de bajo, configura el mixer, diseña sonidos en Serum 2, masteriza con Ozone 12, limpia audio con RX 11, y recibe guias de produccion profesional — todo con lenguaje natural.
 
 Funciona en **Linux** (Kali, Ubuntu, etc.) con FL Studio corriendo en **Wine**, y en **Windows** con FL Studio nativo.
 
-- **Sample indexer inteligente** — busca en tu library de FL Studio por tipo/género/BPM/key/mood en milisegundos. Indexing automático con detección incremental de cambios.
+- **Bridge bidireccional** — el MCP lee el estado real de FL Studio (BPM, patterns, mixer, volumenes, peaks, notas del piano roll) en vez de disparar comandos a ciegas.
+- **Analisis de mezcla y mastering** — mide el mix contra targets por genero, detecta clipping, headroom y desbalance estereo.
+- **Sample indexer inteligente** — busca en tu library de FL Studio por tipo/genero/BPM/key/mood en milisegundos, con indexing incremental.
+- **Instalador para Windows** — wizard grafico + app de bandeja que configuran todo el setup sin tocar la terminal.
 
-> Probado en producción con **Claude Desktop**, **Claude Code** y **OpenCode**. Cualquier cliente compatible con MCP (stdio) lo puede usar — ver [Configuracion del Cliente MCP](#configuracion-del-cliente-mcp) para los snippets de cada uno.
+> Probado en produccion con **Claude Desktop**, **Claude Code** y **OpenCode**. Cualquier cliente compatible con MCP (stdio) lo puede usar — ver [Configuracion del Cliente MCP](#configuracion-del-cliente-mcp) para los snippets de cada uno.
 
 ---
 
@@ -22,40 +25,43 @@ Funciona en **Linux** (Kali, Ubuntu, etc.) con FL Studio corriendo en **Wine**, 
 ┌─────────────────────────────────────────────────────┐
 │       CLIENTE MCP (Claude / OpenCode / Cursor...)   │
 │                                                     │
-│  trigger.py — FastMCP Server (1,839 lineas)         │
-│  73 tools | 9 resources | 5 prompts                │
+│  trigger.py — FastMCP Server (2,237 lineas)         │
+│  93 tools | 9 resources | 5 prompts                 │
 │                                                     │
-│  knowledge/ — 18 modulos (12,098 lineas)            │
+│  knowledge/ — 20 modulos (12,383 lineas)            │
 │  Escalas, acordes, drums, bass, plugins, mixing,    │
-│  Ozone 12, FabFilter, Serum 2, Cymatics, RX 11,    │
+│  Ozone 12, FabFilter, Serum 2, Cymatics, RX 11,     │
 │  Auto-Tune, sampling, productores, estructuras      │
 │                                                     │
+│  bridge/ — Cliente SysEx (937 lineas)               │
+│  indexer/ — Sample indexer (772 lineas)             │
 │  learned/ — Sistema de aprendizaje persistente      │
-└──────────────────┬──────────────────────────────────┘
-                   │ MIDI (bytes crudos)
-                   │ /dev/snd/midiC0D0
-                   ▼
+└──────────┬──────────────────────────────▲───────────┘
+           │ MIDI (bytes crudos)          │ SysEx
+           │ comandos + notas             │ estado + eventos
+           ▼                              │
 ┌──────────────────────────────────────────────────────┐
-│                  VirMIDI (Linux)                      │
-│              o loopMIDI (Windows)                     │
-└──────────────────┬───────────────────────────────────┘
-                   │
-                   ▼
+│                  VirMIDI (Linux)                     │
+│                o loopMIDI (Windows)                  │
+└──────────┬──────────────────────────────▲───────────┘
+           │                              │
+           ▼                              │
 ┌──────────────────────────────────────────────────────┐
 │               FL STUDIO (Wine / Nativo)              │
 │                                                      │
-│  device_test.py — MIDI Script (976 lineas)           │
+│  device_test.py — MIDI Script (1,081 lineas)         │
 │  Recibe MIDI → Ejecuta API de FL Studio              │
+│  Responde queries SysEx con el estado real           │
 │  11 comandos de mixer, grabacion en piano roll,      │
 │  control de transporte y tempo                       │
 └──────────────────────────────────────────────────────┘
 ```
 
-La comunicacion es **unidireccional**: Claude envia comandos a FL Studio, pero no puede leer el estado actual del proyecto.
+La comunicacion es **bidireccional**: el MCP envia comandos a FL Studio por MIDI crudo, y FL Studio responde por SysEx con el estado del proyecto. Ver [Bridge Bidireccional](#bridge-bidireccional-sysex).
 
 ---
 
-## Herramientas Disponibles (73 tools)
+## Herramientas Disponibles (93 tools)
 
 ### Transporte y Control (5)
 
@@ -67,7 +73,7 @@ La comunicacion es **unidireccional**: Claude envia comandos a FL Studio, pero n
 | `get_bpm` | Ver BPM actual con contexto de genero y patrones compatibles |
 | `list_midi_ports` | Listar puertos MIDI disponibles |
 
-### Composicion y Generacion (7)
+### Composicion y Generacion (9)
 
 | Herramienta | Descripcion |
 |---|---|
@@ -78,6 +84,36 @@ La comunicacion es **unidireccional**: Claude envia comandos a FL Studio, pero n
 | `generate_bassline` | Linea de bajo adaptada al BPM (4 estilos) |
 | `generate_scale_notes` | Notas de una escala en rango de octavas |
 | `suggest_for_bpm` | Recomendaciones completas segun BPM |
+| `list_available_drum_patterns` | Listar patrones de bateria, filtrable por genero |
+| `list_available_progressions` | Listar progresiones de acordes, filtrable por genero |
+
+### Bridge — Estado en Vivo (5)
+
+Requieren el bridge SysEx activo. Leen datos reales de FL Studio.
+
+| Herramienta | Descripcion |
+|---|---|
+| `ping_fl` | Sanity check del bridge. Verifica que FL Studio responde |
+| `get_fl_state` | Estado del proyecto: BPM, pattern actual, cantidad de patterns, canales, pistas del mixer |
+| `get_live_state` | Snapshot cacheado del estado, actualizado por los eventos que FL empuja |
+| `get_recent_events` | Ultimos eventos empujados por FL (cambio de BPM, switch de pattern, play/stop) |
+| `capture_pattern` | Reproduce el pattern actual y captura las notas del canal seleccionado del piano roll |
+
+### Analisis de Mezcla y Mastering (11)
+
+| Herramienta | Descripcion |
+|---|---|
+| `set_genre` | Fijar el genero del proyecto, configurando targets de mastering por defecto |
+| `set_mastering_target` | Sobrescribir valores numericos del target (solo los parametros que pases) |
+| `get_mastering_target` | Ver el target activo (default del genero + overrides) |
+| `analyze_mix_static` | Analizar el mix sin reproducir. Detecta FX sobrecargados, clipping en master, pistas silenciadas activas |
+| `analyze_master` | Analizar la cadena de master y los peaks contra el target de mastering |
+| `start_peak_monitoring` | Empezar a muestrear peaks del mixer con max-hold mientras reproducis |
+| `stop_peak_monitoring` | Detener el monitoreo. Los peaks acumulados se conservan |
+| `get_peak_report` | Reporte de peaks max-hold acumulados desde el ultimo start |
+| `get_track_volume` | Volumen actual del fader de una pista (0.0-1.0+) |
+| `get_track_peaks` | Peaks L/R actuales de una pista (dB) |
+| `get_track_pan` | Paneo actual de una pista (-1.0 a 1.0) |
 
 ### Mixer (11)
 
@@ -95,12 +131,22 @@ La comunicacion es **unidireccional**: Claude envia comandos a FL Studio, pero n
 | `apply_mixer_template` | Template completo por genero |
 | `get_sidechain_guide` | Guia de compresion sidechain |
 
-### Mezcla y Procesamiento (14)
+### Sample Library (4)
+
+| Herramienta | Descripcion |
+|---|---|
+| `search_samples_in_library` | Buscar samples por tipo, genero, BPM, key, mood |
+| `list_sample_categories` | Valores canonicos aceptados por la busqueda |
+| `get_library_stats` | Estadisticas agregadas de la library indexada |
+| `reindex_library` | Recorrer la library y actualizar el manifest incrementalmente |
+
+### Mezcla y Procesamiento (15)
 
 | Herramienta | Descripcion |
 |---|---|
 | `get_plugin_chain` | Cadena de plugins por elemento y genero |
 | `get_vocal_processing` | Cadena vocal completa (10 slots) |
+| `get_vocal_tricks_guide` | Trucos avanzados de vocal (dobles, autotune, chops) |
 | `get_mastering_guide` | Cadena de mastering con targets LUFS |
 | `get_mix_reference_levels` | Niveles de referencia y paneo |
 | `get_eq_frequency_guide` | Guia de frecuencias EQ |
@@ -194,7 +240,78 @@ La comunicacion es **unidireccional**: Claude envia comandos a FL Studio, pero n
 
 ---
 
-## Knowledge Base — 18 Modulos, 12,098 Lineas
+## Bridge Bidireccional (SysEx)
+
+Canal de retorno FL Studio → MCP, complementario al MIDI unidireccional que se usa para enviar notas. Permite que la IA **lea** el estado real del proyecto en vez de trabajar a ciegas.
+
+### Por que SysEx y no TCP
+
+FL Studio 2024 ejecuta los MIDI controller scripts en un **sub-interpreter de Python aislado** (PEP 684) con sandboxing agresivo. Estan bloqueados `socket`, `threading.Thread(daemon=True)`, `subprocess` y el file I/O via Wine `Z:\`. La unica salida de datos permitida desde el sub-interpreter es `device.midiOutSysex()`.
+
+Ademas, `python-rtmidi` **pierde SysEx** cuando uno de los endpoints es Wine, porque pasa por el ALSA Sequencer. La solucion es `os.write()` y `os.read()` directos al raw MIDI device.
+
+### Como funciona
+
+```
+MCP (trigger.py)
+  └─ SysExClient
+       ├─ os.write(/dev/snd/midiC0D0)        → FL Studio
+       └─ thread daemon: os.read(...)         ← FL Studio (slice F0..F7)
+
+FL Studio (device_test.py)
+  ├─ OnSysEx(event) → server.feed_packet()    (encola request)
+  ├─ OnIdle()       → server.drain_once()     (despacha en main thread)
+  └─ HandlerRegistry → device.midiOutSysex()  → MCP
+```
+
+No se usa threading dentro de FL Studio: el reensamblador y el dispatcher corren en el main thread via `OnIdle()`.
+
+### Protocolo
+
+Header: `F0 7D 00 01 <SEQ_HI> <SEQ_LO> <CHUNK_IDX> <CHUNK_CNT> <PAYLOAD> F7`. Manufacturer ID `0x7D` (private), magic `0x00 0x01`. Payload maximo por chunk: 1015 bytes. Los mensajes grandes se trocean y reensamblan por `seq`.
+
+| Tipo | Sentido | Proposito |
+|---|---|---|
+| `req` | MCP → FL | Query con `id`, `method`, `params` |
+| `res` | FL → MCP | Respuesta correlacionada por `id`, con `ok` + `result` o `error` |
+| `evt` | FL → MCP | Evento empujado sin request previo (cambio de BPM, switch de pattern) |
+
+### Servicios que corren dentro de FL Studio
+
+| Servicio | Que hace |
+|---|---|
+| `StateWatcher` | Poll en `OnIdle()`, emite eventos cuando cambia BPM, pattern o transporte |
+| `PeakMonitor` | Muestrea peaks del mixer con max-hold mientras reproducis |
+| `NoteCapture` | Buffer de note-on/off para capturar el piano roll durante playback |
+| `EventSink` | Log thread-safe de eventos + cache del ultimo estado conocido |
+
+---
+
+## Sample Indexer
+
+Indexa la library de FL Studio (carpeta `Packs/`) por metadata extraida del **filename + contexto de carpeta**. Sin analisis de audio. El indexing es incremental: re-correrlo solo procesa archivos nuevos o modificados.
+
+### Paths por defecto
+
+| Variable | Default Linux | Override |
+|---|---|---|
+| Packs root | `~/.flstudio_prefix/drive_c/Program Files/Image-Line/FL Studio 2024/Data/Patches/Packs` | `FL_MCP_PACKS_ROOT` |
+| Manifest | `~/.fl_mcp/library_index/manifest.parquet` | `FL_MCP_MANIFEST_PATH` |
+
+### CLI
+
+```bash
+python -m indexer index      # primera vez: ~1-2 min para 40k samples
+python -m indexer index      # subsecuentes: <10s si nada cambio
+python -m indexer stats      # breakdown por tipo/genero
+python -m indexer search --type kick --genre trap --bpm 140 --limit 5
+```
+
+Para extender el matching, agregar keywords en `indexer/keywords.py` (cada diccionario es `{nombre_canonico: [aliases]}`) y re-indexar.
+
+---
+
+## Knowledge Base — 20 Modulos, 12,383 Lineas
 
 ### Composicion y Teoria
 
@@ -213,6 +330,7 @@ La comunicacion es **unidireccional**: Claude envia comandos a FL Studio, pero n
 | `vocal_chains.py` | 1,456 | Cadenas vocales de 10 slots, trucos, checklist |
 | `mixing_advanced.py` | 892 | Gain staging avanzado, buses, mezcla paso a paso |
 | `sampling.py` | 993 | Chopping, pitch, time-stretch, drum machines, layering |
+| `mix_analyzer.py` | 201 | Targets por genero, scoring de mezcla y master, reportes en español |
 
 ### Plugins Especificos
 
@@ -225,13 +343,14 @@ La comunicacion es **unidireccional**: Claude envia comandos a FL Studio, pero n
 | `autotune.py` | 342 | Auto-Tune Pro + Auto-Key, 4 estilos, workflow vocal |
 | `rx11.py` | 646 | 13 modulos RX 11, 5 workflows de limpieza |
 
-### Referencia
+### Referencia e Infraestructura
 
 | Modulo | Lineas | Contenido |
 |---|---|---|
 | `producers.py` | 331 | 13 productores legendarios con guias de replicacion |
 | `song_structures.py` | 251 | Templates de estructura, transiciones |
 | `constants.py` | 97 | Mapeo MIDI, nombres de notas, enums |
+| `midi_transport.py` | 84 | Abstraccion cross-platform de transporte MIDI (Linux raw / Windows rtmidi) |
 | `learned/user_learning.py` | 339 | Sistema de aprendizaje persistente (JSON) |
 
 ---
@@ -324,6 +443,15 @@ Los datos se persisten en archivos JSON en `knowledge/learned/data/`.
 | Tempo | 72 | 73 | BPM codificado en bytes MIDI |
 | Mixer | 74 | 75 | Comando + parametros del mixer |
 
+### Transporte
+
+La abstraccion vive en `knowledge/midi_transport.py` y `create_transport()` elige segun `sys.platform`:
+
+- **Linux** — `LinuxRawTransport`: escritura directa a `/dev/snd/midiC0D0`
+- **Windows** — `WindowsRtmidiTransport`: `python-rtmidi` al puerto virtual `FL_MCP` (creado por loopMIDI)
+
+`mido` no se usa para transporte (falla con Wine ALSA) ni `amidi` por subprocess (demasiado lento). `mido` si se usa para leer archivos MIDI en `analyze_midi`.
+
 ### Calibracion de Timing
 
 La grabacion en tiempo real requiere compensacion de drift por BPM:
@@ -333,17 +461,17 @@ La grabacion en tiempo real requiere compensacion de drift por BPM:
 | 80 | 1.0 (ninguno) | Timing preciso sin compensacion |
 | 90 | 1.21 | Compensa compresion de 0.826x |
 
-Delay de arranque despues de Note 76: **0.05s** (no mas).
-
----
-
-## Bridge Bidireccional
-
-El MCP puede consultar estado de FL Studio en tiempo real (BPM, patterns, mixer, channels) mediante un canal TCP bidireccional separado del MIDI. Documentación técnica en `CLAUDE.md`.
+Delay de arranque despues de Note 76: **0.05s** (no mas). Para calibrar un BPM nuevo: empezar con `DRIFT=1.0`, enviar un patron de prueba, exportar el MIDI y verificar posiciones bar/beat. `DRIFT = beats_esperados / beats_grabados`.
 
 ---
 
 ## Instalacion
+
+### Windows — Instalador automatico (recomendado)
+
+Descargar el instalador desde [Releases](https://github.com/Codigo-Neon/FL-STUDIO-MCP/releases) y ejecutarlo. El wizard grafico detecta que tenes instalado (Claude Desktop, FL Studio, loopMIDI, WebView2), configura el cliente MCP, copia el script a FL Studio y crea el puerto MIDI virtual. Despues queda una app de bandeja que supervisa que todo siga corriendo.
+
+Para buildearlo vos mismo, ver [`installer/BUILD.md`](installer/BUILD.md).
 
 ### Linux (Kali, Ubuntu, etc.)
 
@@ -353,31 +481,34 @@ sudo modprobe snd-virmidi
 
 # 2. Conectar VirMIDI a Wine ALSA
 aconnect 20:0 128:0  # ajustar numeros segun tu sistema
+#   (o usar el helper: ./scripts/setup_alsa_loopback.sh)
 
 # 3. Instalar dependencias
-pip install mcp mido
+pip install -r requirements.txt
 
-# 4. Copiar device_test.py a FL Studio
-# ~/.flstudio_prefix/drive_c/.../FL Studio/Settings/Hardware/
+# 4. Copiar device_test.py y bridge/ a FL Studio
+#    ~/Documentos/Image-Line/FL Studio/Settings/Hardware/Test Controller/
 
 # 5. En FL Studio: MIDI Settings > seleccionar "Test Controller"
 
-# 6. Configurar en Claude Desktop o Claude Code
+# 6. Configurar en tu cliente MCP (ver abajo)
 ```
 
-### Windows
+> El bridge SysEx necesita que `bridge/` este copiado **junto** a `device_test.py` dentro de la carpeta de FL Studio. Sin eso el MCP funciona, pero las tools de estado en vivo fallan.
+
+### Windows — Manual
 
 ```powershell
-# 1. Instalar loopMIDI (crear puerto "MCP-FL")
-# https://www.tobias-erichsen.de/software/loopmidi.html
+# 1. Instalar loopMIDI y crear un puerto llamado exactamente "FL_MCP"
+#    https://www.tobias-erichsen.de/software/loopmidi.html
 
 # 2. Instalar dependencias
-pip install mcp mido python-rtmidi
+pip install -r requirements.txt
 
-# 3. Copiar device_test.py a:
-# C:\Program Files\Image-Line\FL Studio 2024\Settings\Hardware\
+# 3. Copiar device_test.py y bridge\ a:
+#    Documents\Image-Line\FL Studio\Settings\Hardware\FL_MCP\
 
-# 4. En FL Studio: MIDI Settings > Input "MCP-FL" > Controller "Test Controller"
+# 4. En FL Studio: MIDI Settings > Input "FL_MCP" > Controller "Test Controller"
 ```
 
 ### Configuracion del Cliente MCP
@@ -438,7 +569,7 @@ Archivo: `opencode.json` (raiz del proyecto) o `~/.config/opencode/opencode.json
 }
 ```
 
-Reiniciar OpenCode despues de editar. Para verificar: `/mcp` dentro de la TUI listara `flstudio` con sus 73 tools.
+Reiniciar OpenCode despues de editar. Para verificar: `/mcp` dentro de la TUI listara `flstudio` con sus 93 tools.
 
 #### Otros clientes (Cursor, Continue, Cline, Zed)
 
@@ -454,6 +585,7 @@ Antes de usar el MCP, asegurate de que:
    - Linux: `aconnect -l` debe mostrar VirMIDI → WINE ALSA Input
    - Windows: loopMIDI con puerto `FL_MCP` activo
 4. **El cliente reconoce el server**: en Claude Code `claude mcp list`, en OpenCode `/mcp`
+5. **El bridge responde**: pedile a la IA que corra `ping_fl`. Si devuelve `pong`, el canal de retorno esta vivo
 
 ---
 
@@ -461,9 +593,9 @@ Antes de usar el MCP, asegurate de que:
 
 ```
 FL MCP/
-├── trigger.py                    # Servidor MCP (1,839 lineas, 73 tools)
-├── device_test.py                # MIDI script FL Studio (976 lineas)
-├── knowledge/                    # Base de conocimiento (12,098 lineas)
+├── trigger.py                    # Servidor MCP (2,237 lineas, 93 tools)
+├── device_test.py                # MIDI script FL Studio (1,081 lineas)
+├── knowledge/                    # Base de conocimiento (12,383 lineas)
 │   ├── scales.py                 # 8 escalas con teoria
 │   ├── chords.py                 # 12 acordes, 7 progresiones
 │   ├── drum_patterns.py          # 9 patrones con velocity
@@ -472,6 +604,7 @@ FL MCP/
 │   ├── vocal_chains.py           # Procesamiento vocal completo
 │   ├── mixing_advanced.py        # Mezcla avanzada, buses, gain staging
 │   ├── sampling.py               # Sampling, chopping, drum machines
+│   ├── mix_analyzer.py           # Scoring de mezcla/master, targets por genero
 │   ├── ozone12.py                # iZotope Ozone 12 (mastering)
 │   ├── fabfilter.py              # FabFilter Suite (mixing)
 │   ├── serum2.py                 # Serum 2 (sound design)
@@ -481,11 +614,42 @@ FL MCP/
 │   ├── producers.py              # 13 productores legendarios
 │   ├── song_structures.py        # Estructuras de cancion
 │   ├── constants.py              # Constantes MIDI y enums
+│   ├── midi_transport.py         # Transporte MIDI cross-platform
 │   └── learned/                  # Sistema de aprendizaje
 │       └── user_learning.py      # Patrones, preferencias, historial
+├── bridge/                       # Bridge bidireccional SysEx (937 lineas)
+│   ├── sysex_protocol.py         # Encoding/decoding de frames SysEx
+│   ├── sysex_client.py           # Lado MCP: write + read thread
+│   ├── sysex_server.py           # Lado FL: reensamblador + dispatcher
+│   ├── handlers.py               # HandlerRegistry con API de decorador
+│   ├── fl_handlers.py            # Protocol FLApi + registro de metodos
+│   ├── fl_adapter.py             # LiveFLAdapter → API real de FL Studio
+│   ├── state_watcher.py          # Poll de BPM/pattern/transporte → eventos
+│   ├── peak_monitor.py           # Muestreo de peaks con max-hold
+│   ├── note_capture.py           # Captura de notas del piano roll
+│   ├── event_sink.py             # Log de eventos + cache de estado
+│   └── {client,server,protocol}.py  # TCP legacy (referencia, no se usa)
+├── indexer/                      # Sample indexer (772 lineas)
+│   ├── keywords.py               # Diccionarios de tipo/genero/mood/subtipo
+│   ├── parser.py                 # Tokenizer + extraccion de BPM, key, tags
+│   ├── walker.py                 # Filesystem walker con filtros
+│   ├── fileinfo.py               # Hash de contenido + stat
+│   ├── storage.py                # Schema parquet
+│   ├── manifest.py               # build_manifest, search_samples, stats
+│   ├── paths.py                  # Defaults por plataforma
+│   └── cli.py                    # Interfaz de linea de comandos
+├── installer/                    # Instalador Windows (1,778 lineas)
+│   ├── setup_engine/             # Logica pura (detect, config, loopMIDI)
+│   ├── wizard/                   # GUI de primera vez (pywebview)
+│   ├── tray/                     # App persistente de bandeja (pystray)
+│   ├── build/                    # Pipeline de build (Python embedded + Inno)
+│   └── setup.iss                 # Script de Inno Setup
+├── scripts/                      # Helpers (setup_alsa_loopback.sh)
+├── tests/                        # 38 archivos de test (pytest)
 ├── CLAUDE.md                     # Guia de desarrollo y calibracion
 ├── README.md                     # Este archivo
-└── requirements.txt              # Dependencias Python
+├── requirements.txt              # Dependencias Python
+└── requirements-dev.txt          # pytest, pytest-mock, pyfakefs
 ```
 
 ---
@@ -495,6 +659,22 @@ FL MCP/
 ```
 "Poneme 80 BPM y haceme un bajo en D# menor de 8 compases estilo boom bap"
 → set_bpm(80) + generate_bassline + send_melody
+
+"Que tengo abierto en FL ahora mismo?"
+→ get_fl_state() — BPM, pattern actual, canales, pistas del mixer
+
+"Reproduci el tema y decime si estoy clipeando"
+→ start_peak_monitoring() → [reproducis] → analyze_master()
+   Peaks max-hold contra el target de mastering del genero
+
+"Analizame la mezcla sin reproducir"
+→ analyze_mix_static() — FX sobrecargados, clipping en master, pistas silenciadas
+
+"Que notas tiene el pattern que acabo de tocar?"
+→ capture_pattern() — captura el piano roll del canal seleccionado
+
+"Buscame un kick de trap a 140"
+→ search_samples_in_library(sample_type="kick", genre="trap", bpm=140)
 
 "Que cadena de mastering me recomendas para trap?"
 → get_ozone_mastering("trap") — cadena Ozone 12 completa con settings
@@ -517,12 +697,25 @@ FL MCP/
 "Armame el mixer completo para boom bap"
 → apply_mixer_template("boom_bap") — nombres, colores, buses, sidechain
 
-"Analizame este MIDI que exporte"
-→ analyze_midi("archivo.mid") — key, escala, rango, notas, duracion
-
 "Quiero hacer un beat al estilo de J Dilla"
 → get_producer_info("j_dilla") — MPC 3000, swing extremo, samples, tips
 ```
+
+---
+
+## Desarrollo
+
+```bash
+pip install -r requirements-dev.txt
+pytest                              # suite completa
+pytest tests/bridge                 # bridge SysEx
+pytest tests/test_midi_transport.py # transporte cross-platform
+pytest tests/wizard tests/tray tests/setup_engine tests/build_pipeline
+```
+
+Los tests del installer corren en Linux con `pyfakefs`/`tmp_path` y mocks de `subprocess`/`urllib`/`rtmidi`/`psutil`. La validacion end-to-end del instalador es manual, con [`installer/QA_CHECKLIST.md`](installer/QA_CHECKLIST.md) en una VM Windows.
+
+Para agregar un metodo nuevo al bridge, ver la seccion correspondiente en [`CLAUDE.md`](CLAUDE.md).
 
 ---
 
@@ -530,13 +723,17 @@ FL MCP/
 
 | Metrica | Cantidad |
 |---|---|
-| Tools MCP | 73 |
+| Tools MCP | 93 |
 | Resources MCP | 9 |
 | Prompts MCP | 5 |
-| Modulos de knowledge | 18 |
-| Lineas de knowledge | 12,098 |
-| Lineas de trigger.py | 1,839 |
-| Lineas de device_test.py | 976 |
+| Modulos de knowledge | 20 |
+| Lineas de knowledge | 12,383 |
+| Lineas de trigger.py | 2,237 |
+| Lineas de device_test.py | 1,081 |
+| Lineas de bridge SysEx | 937 |
+| Lineas de indexer | 772 |
+| Lineas de installer | 1,778 |
+| Archivos de test | 38 |
 | Generos soportados | 7 |
 | Patrones de drums | 9 |
 | Escalas | 8 |
