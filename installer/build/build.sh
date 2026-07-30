@@ -27,6 +27,17 @@ SITE_PACKAGES="$EMBED_DIR/Lib/site-packages"
 # ---- python on host ----
 PYTHON="${PYTHON:-python3}"
 
+# ---- version ----
+# setup.iss is the single source of truth: it defines MyAppVersion and derives
+# OutputBaseFilename from it. Parse it here instead of duplicating the literal,
+# so bumping the version means editing exactly one line.
+VERSION="$(sed -n 's/^#define MyAppVersion "\(.*\)"$/\1/p' "$INSTALLER_DIR/setup.iss")"
+if [ -z "$VERSION" ]; then
+    echo "ERROR: could not parse MyAppVersion from $INSTALLER_DIR/setup.iss" >&2
+    exit 1
+fi
+EXE_NAME="FL-MCP-Studio-Setup-v${VERSION}.exe"
+
 # Make `python -m installer.build.<module>` work regardless of CWD: prepend
 # the repo root to PYTHONPATH so the `installer` package is importable.
 export PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
@@ -67,6 +78,7 @@ run_iscc() {
 
 # ---- main ----
 echo "=== FL MCP Studio build ==="
+echo "Version:       $VERSION"
 echo "Repo root:     $REPO_ROOT"
 echo "Cache:         $CACHE_DIR"
 echo "Staging:       $STAGING_DIR"
@@ -103,7 +115,7 @@ cd "$INSTALLER_DIR"
 run_iscc "$ISCC" "setup.iss"
 
 echo "[5/5] Verifying output..."
-EXPECTED_EXE="$INSTALLER_DIR/dist/FL-MCP-Studio-Setup-v0.1.0.exe"
+EXPECTED_EXE="$INSTALLER_DIR/dist/$EXE_NAME"
 if [ ! -f "$EXPECTED_EXE" ]; then
     echo "ERROR: expected $EXPECTED_EXE not found after iscc compile." >&2
     exit 1
@@ -111,7 +123,7 @@ fi
 
 # Move to the build dir's dist/ for consistency with .gitignore
 mv "$EXPECTED_EXE" "$DIST_DIR/"
-FINAL_EXE="$DIST_DIR/FL-MCP-Studio-Setup-v0.1.0.exe"
+FINAL_EXE="$DIST_DIR/$EXE_NAME"
 
 SIZE_MB=$(du -m "$FINAL_EXE" | cut -f1)
 echo
